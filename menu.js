@@ -95,7 +95,7 @@
       const b = boxes(), W = view.W, H = view.H;
       rect(0, 0, W, H, '#14142a');
       for (let y = 0; y < H; y += 6) rect(0, y, W, 1, '#1b1b38');
-      text('FINGER DASH', b.title.x, b.title.y, '#f9d56e', 2, b.title.align);
+      text('FINGER PODIUM', b.title.x, b.title.y, '#f9d56e', 2, b.title.align);
 
       list.forEach((c, i) => {
         const f = b.flag(i), selected = c.id === model.country;
