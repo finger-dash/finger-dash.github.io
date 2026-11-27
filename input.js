@@ -4,6 +4,7 @@
 // leaks over time. Browsers expose no raw touches, so swipes come from:
 //   - one finger:  pointer movement (use Pointer Lock so it never hits an edge)
 //   - two fingers: `wheel` events
+//   - touch screens: one stream per finger
 // A quick upward flick triggers a jump.
 (function (root) {
   'use strict';
@@ -52,6 +53,17 @@
     // Pointer movement; positive dy means downwards.
     move(dy, t) {
       this._feed('pointer', dy, t);
+    }
+
+    // Touch screens: each finger is tracked separately.
+    touch(id, dy, t) {
+      this._feed(`touch:${id}`, dy, t);
+    }
+
+    // Finger lifted: forget its streams.
+    release(id) {
+      delete this.streams[`touch:${id}`];
+      delete this.flicks[`touch:${id}`];
     }
 
     // A swipe is counted once. It ends on silence, on upward movement, or when

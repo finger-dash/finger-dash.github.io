@@ -1,7 +1,7 @@
 # Finger Dash (PoC)
 
 Pixel-art 400 m hurdles race on an oval track, with a chase camera and five rivals,
-controlled with a laptop trackpad. Vanilla JavaScript and Canvas 2D. No dependencies,
+controlled with a laptop trackpad or a phone touch screen. Vanilla JavaScript and Canvas 2D. No dependencies,
 no build step.
 
 ## Race rules
@@ -21,6 +21,20 @@ no build step.
 | Name (up to 8 characters) | | Type, Backspace |
 | Level | Click a button | Tab |
 | Start | Start button | Enter |
+
+## Phones
+
+Play in landscape. The race pauses while the phone is upright.
+
+| Action | Touch |
+|---|---|
+| Charge speed | Swipe down anywhere; alternate fingers to charge faster |
+| Jump | Quick upward flick |
+| Name | Tap the name box to open the system keyboard |
+| Back to menu | `MENU` button |
+
+Android browsers switch to full screen on start. iPhone Safari does not support it;
+use "Add to Home Screen" to hide the browser bars.
 
 ## Sense of speed
 
@@ -82,6 +96,7 @@ node --test
 | `index.html` | Page and canvas |
 | `input.js` | Gesture detector (DOM-free, testable) |
 | `menu.js` | Runner selection screen |
+| `mobile.js` | Touch gestures, system keyboard and orientation |
 | `countries.js` | Outfits and pixel flags |
 | `avatar.js` | Rotatable box model of the runner, with name on the shirt |
 | `font.js` | Bitmap font and name sanitizing |

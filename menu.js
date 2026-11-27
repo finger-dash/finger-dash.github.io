@@ -48,13 +48,14 @@
       if (flag >= 0) { model.country = list[flag].id; return 'changed'; }
       const level = LEVELS.findIndex((_, i) => inside(levelBox(i), x, y));
       if (level >= 0) { model.difficulty = LEVELS[level]; return 'changed'; }
+      if (inside(nameBox, x, y)) return 'name';
       return inside(startBox, x, y) ? 'start' : null;
     }
 
-    const hovering = (x, y) => inside(startBox, x, y) ||
+    const hovering = (x, y) => inside(startBox, x, y) || inside(nameBox, x, y) ||
       list.some((_, i) => inside(flagBox(i), x, y)) || LEVELS.some((_, i) => inside(levelBox(i), x, y));
 
-    function draw(model, now) {
+    function draw(model, now, touch) {
       rect(0, 0, W, H, '#14142a');
       for (let y = 0; y < H; y += 6) rect(0, y, W, 1, '#1b1b38');
       text('FINGER DASH', 10, 6, '#f9d56e', 2);
@@ -71,14 +72,14 @@
       text('NAME:', nameBox.x + 4, nameBox.y + 3, '#9ab');
       const cursor = Math.floor(now / 400) % 2 && model.name.length < Font.NAME_MAX ? '_' : '';
       if (model.name) text(model.name + cursor, nameBox.x + 30, nameBox.y + 3, '#fff');
-      else text(`TYPE YOUR NAME${cursor}`, nameBox.x + 30, nameBox.y + 3, '#667');
+      else text(`${touch ? 'TAP' : 'TYPE'}${touch ? ' TO TYPE' : ' YOUR NAME'}${cursor}`, nameBox.x + 30, nameBox.y + 3, '#667');
 
       LEVELS.forEach((level, i) => {
         const b = levelBox(i), selected = level === model.difficulty;
         rect(b.x, b.y, b.w, b.h, selected ? '#f9d56e' : '#2b2b4a');
         text(level, b.x + b.w / 2, b.y + 3, selected ? '#14142a' : '#9ab', 1, 'center');
       });
-      text('ARROWS: COUNTRY - TAB: LEVEL', 10, 170, '#667');
+      text(touch ? 'SWIPE DOWN: RUN - FLICK UP: JUMP' : 'ARROWS: COUNTRY - TAB: LEVEL', 10, 170, '#667');
 
       // Preview: running on the spot while turning around.
       rect(180, 4, 130, 150, '#0d0d1f');
@@ -93,7 +94,7 @@
       text(country.name, 245, 8, '#fff', 1, 'center');
 
       rect(startBox.x, startBox.y, startBox.w, startBox.h, '#5be37d');
-      text('START - ENTER', startBox.x + startBox.w / 2, startBox.y + 7, '#10300f', 1, 'center');
+      text(touch ? 'START' : 'START - ENTER', startBox.x + startBox.w / 2, startBox.y + 7, '#10300f', 1, 'center');
     }
 
     return { draw, key, click, hovering };

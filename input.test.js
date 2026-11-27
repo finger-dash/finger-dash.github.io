@@ -100,3 +100,22 @@ test('running swipes never jump', () => {
   for (let i = 0; i < 30; i++) t = point(detector, [...swipe, -1, -2], t + 80);
   assert.deepStrictEqual(jumps, []);
 });
+
+test('alternating fingers on a touch screen each charge the bar', () => {
+  const { detector, jumps } = setup();
+  let t = 0;
+  for (let i = 0; i < 6; i++) {
+    const id = i + 1;
+    for (const d of swipe) detector.touch(id, d, (t += 16)); // no pause between fingers
+    detector.release(id);
+  }
+  assert.strictEqual(detector.strokes, 6);
+  assert.deepStrictEqual(jumps, []);
+});
+
+test('an upward touch flick jumps', () => {
+  const { detector, jumps } = setup();
+  let t = 1000;
+  for (const d of [-12, -30, -40, -25]) detector.touch(9, d, (t += 16));
+  assert.deepStrictEqual(jumps, ['flick']);
+});

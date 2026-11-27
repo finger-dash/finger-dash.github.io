@@ -28,6 +28,8 @@
     detector.naturalScroll = localStorage.getItem('hurdles.natural') !== '0';
   } catch (_) {}
 
+  const mobile = Mobile.createMobile({ canvas, detector, Font });
+
   function newRace() {
     detector.reset();
     race = Race.createRace({
@@ -39,6 +41,7 @@
   function openMenu() {
     newRace();
     state = 'menu';
+    mobile.closeName();
     if (document.pointerLockElement) document.exitPointerLock();
   }
 
@@ -48,7 +51,9 @@
     state = 'countdown';
     countdown = 3;
     canvas.style.cursor = '';
-    lockPointer();
+    mobile.closeName();
+    if (mobile.isTouch()) mobile.enterFullscreen();
+    else lockPointer();
   }
 
   function saveProfile() {
@@ -60,6 +65,12 @@
   function menuAction(action) {
     if (action === 'changed') saveProfile();
     if (action === 'start') start();
+    if (action === 'name' && mobile.isTouch()) {
+      mobile.editName(profile.name, (name) => {
+        profile.name = name;
+        saveProfile();
+      });
+    }
   }
 
   function jump() {
@@ -85,7 +96,9 @@
       if (request) request.catch(() => {});
     } catch (_) {}
   }
-  window.addEventListener('mousemove', (e) => detector.move(e.movementY, performance.now()));
+  window.addEventListener('mousemove', (e) => {
+    if (!mobile.fromTouch()) detector.move(e.movementY, performance.now());
+  });
 
   // Ignores accidental taps right after the results show up.
   const resultsReady = () => performance.now() - resultsAt > 1500;
@@ -94,6 +107,7 @@
   let lastArrow = '';
   window.addEventListener('keydown', (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return; // keep browser shortcuts
+    if (mobile.isEditing()) return; // the text field handles its own keys
     if (state === 'menu') {
       const action = menu.key(profile, e);
       if (action) e.preventDefault();
@@ -123,27 +137,45 @@
     const box = canvas.getBoundingClientRect();
     return [(e.clientX - box.left) * (W / box.width), (e.clientY - box.top) * (H / box.height)];
   }
-  const RETRY = { x: 66, w: 90 }, MENU = { x: 164, w: 90 }, BUTTON_Y = 145, BUTTON_H = 15;
-  const over = (b, x, y) => x >= b.x && x < b.x + b.w && y >= BUTTON_Y && y < BUTTON_Y + BUTTON_H;
+  const RETRY = { x: 66, y: 145, w: 90, h: 15 }, MENU = { x: 164, y: 145, w: 90, h: 15 };
+  const QUIT = { x: 5, y: 24, w: 30, h: 13 }; // touch only: leave the race
+  const over = (b, x, y) => x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h;
 
   window.addEventListener('mousemove', (e) => {
     if (state === 'menu') canvas.style.cursor = menu.hovering(...point(e)) ? 'pointer' : 'default';
     else if (state === 'finished') canvas.style.cursor = 'default';
   });
-  window.addEventListener('mousedown', (e) => {
-    if (e.button !== 0) return;
-    if (state === 'menu') menuAction(menu.click(profile, ...point(e)));
+
+  // Clicks and taps. Taps act on release, which lets phones open the keyboard.
+  // A press that travels is a swipe, so it never presses a button.
+  const TAP_SLOP = 12; // CSS px
+  const presses = new Map();
+  canvas.addEventListener('pointerdown', (e) => presses.set(e.pointerId, [e.clientX, e.clientY]));
+  canvas.addEventListener('pointercancel', (e) => presses.delete(e.pointerId));
+  canvas.addEventListener('pointerup', (e) => {
+    const from = presses.get(e.pointerId);
+    presses.delete(e.pointerId);
+    if (e.button !== 0 || mobile.needsRotation() || !from) return;
+    if (e.pointerType !== 'mouse' &&
+        Math.hypot(e.clientX - from[0], e.clientY - from[1]) > TAP_SLOP) return;
+    const [x, y] = point(e);
+    if (state === 'menu') menuAction(menu.click(profile, x, y));
     else if (state === 'finished') {
-      const [x, y] = point(e);
       if (!resultsReady()) return;
       if (over(RETRY, x, y)) start();
       else if (over(MENU, x, y)) openMenu();
+    } else if (e.pointerType !== 'mouse') {
+      if (over(QUIT, x, y)) openMenu();
     } else if (!locked()) lockPointer();
   });
 
   // ---------- Simulation ----------
 
   function update(dt, now) {
+    if (mobile.needsRotation()) {
+      detector.update(now, true);
+      return;
+    }
     detector.update(now, state === 'running' && race.player.jumpT >= 0);
 
     if (state === 'countdown') {
@@ -243,14 +275,25 @@
     if (race.player.finishTime !== null) {
       text(`HURDLES CLEARED ${cleared}/${Race.HURDLES.length}`, W / 2, 134, '#9ab', 1, 'center');
     }
-    for (const [button, label, color] of [[RETRY, 'RETRY - ENTER', '#5be37d'], [MENU, 'MENU - M', '#9ab']]) {
-      rect(button.x, BUTTON_Y, button.w, BUTTON_H, color);
-      text(label, button.x + button.w / 2, BUTTON_Y + 5, '#10101c', 1, 'center');
+    for (const [button, label, color] of [
+      [RETRY, mobile.isTouch() ? 'RETRY' : 'RETRY - ENTER', '#5be37d'],
+      [MENU, mobile.isTouch() ? 'MENU' : 'MENU - M', '#9ab'],
+    ]) {
+      rect(button.x, button.y, button.w, button.h, color);
+      text(label, button.x + button.w / 2, button.y + 5, '#10101c', 1, 'center');
     }
   }
 
   function drawOverlay() {
-    if ((state === 'running' || state === 'countdown') && !locked()) {
+    const racing = state === 'running' || state === 'countdown';
+    if (racing && mobile.isTouch()) {
+      rect(QUIT.x, QUIT.y, QUIT.w, QUIT.h, '#10101c');
+      text('MENU', QUIT.x + QUIT.w / 2, QUIT.y + 4, '#fff', 1, 'center');
+      if (state === 'countdown') {
+        rect(W / 2 - 78, 59, 156, 11, '#10101c');
+        text('SWIPE DOWN TO RUN - FLICK UP TO JUMP', W / 2, 62, '#fff', 1, 'center');
+      }
+    } else if (racing && !locked()) {
       text('CLICK TO CAPTURE THE POINTER', W / 2, H - 30, '#fff', 1, 'center');
     }
     if (state === 'countdown') text(Math.ceil(countdown), W / 2, 30, '#fff', 5, 'center');
@@ -265,12 +308,13 @@
     last = now;
     update(dt, now);
     if (state === 'menu') {
-      menu.draw(profile, now);
+      menu.draw(profile, now, mobile.isTouch());
     } else {
       view.scene(race, now);
       if (state !== 'finished') drawHud();
       drawOverlay();
     }
+    document.body.classList.toggle('rotate', mobile.needsRotation());
     requestAnimationFrame(frame);
   }
 
