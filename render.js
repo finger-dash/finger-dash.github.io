@@ -2,26 +2,35 @@
 (function (root) {
   'use strict';
 
-  const HORIZON = 62, NEAR = 0.8, RES = 2;
-  // The runner is drawn 1:1 at the player's depth.
-  const PIXELS_PER_METER = 40;
+  const NEAR = 0.8;
+  const SPRITE_PPM = 40; // runner model units per meter
 
-  function createRenderer(canvas, Track, Race, Countries, Font, Avatar) {
+  function createRenderer(canvas, Track, Race, Countries, Font, Avatar, Layout) {
     const ctx = canvas.getContext('2d');
-    // Everything is laid out in logical pixels; the canvas has RES times more.
-    const W = canvas.width / RES, H = canvas.height / RES;
-    ctx.setTransform(RES, 0, 0, RES, 0, 0);
-    ctx.imageSmoothingEnabled = false;
     const avatar = Avatar.createAvatar(Countries, Font);
 
+    // Set by resize(): logical size, horizon line and camera framing.
+    let screenLayout, W, H, HORIZON, BASE_CAM_H, groundCanvas, groundCtx, ground, pixels;
     // Lens: these change with speed (wider and lower when running fast).
-    let FOCAL = 160, CAM_H = 2.55, CAM_DIST = 4, rush = 0;
-    const groundCanvas = document.createElement('canvas');
-    groundCanvas.width = W; groundCanvas.height = H - HORIZON;
-    const groundCtx = groundCanvas.getContext('2d');
+    let FOCAL = 160, CAM_H, CAM_DIST, rush = 0;
 
-    const ground = ctx.createImageData(W, H - HORIZON);
-    const pixels = new Uint32Array(ground.data.buffer);
+    // Everything is laid out in logical pixels; the canvas has `res` times more.
+    function resize(layout) {
+      screenLayout = layout;
+      ({ w: W, h: H, horizon: HORIZON, camH: BASE_CAM_H } = layout);
+      CAM_H = BASE_CAM_H;
+      CAM_DIST = FOCAL / layout.ppm;
+      canvas.width = W * layout.res;
+      canvas.height = H * layout.res;
+      ctx.setTransform(layout.res, 0, 0, layout.res, 0, 0);
+      ctx.imageSmoothingEnabled = false;
+      groundCanvas = document.createElement('canvas');
+      groundCanvas.width = W; groundCanvas.height = H - HORIZON;
+      groundCtx = groundCanvas.getContext('2d');
+      ground = ctx.createImageData(W, H - HORIZON);
+      pixels = new Uint32Array(ground.data.buffer);
+    }
+
     const rgb = (hex) => { // little-endian ABGR
       const v = parseInt(hex.slice(1), 16);
       return (0xff000000 | ((v & 255) << 16) | (v & 0xff00) | (v >> 16)) >>> 0;
@@ -37,8 +46,8 @@
       const target = Math.min(1, Math.max(0, (player.speed - 4) / 9));
       rush += (target - rush) * 0.08;
       FOCAL = 160 - 52 * rush;
-      CAM_H = 2.55 - 0.4 * rush;
-      CAM_DIST = FOCAL / PIXELS_PER_METER;
+      CAM_H = BASE_CAM_H * (1 - 0.16 * rush);
+      CAM_DIST = FOCAL / screenLayout.ppm;
       const p = Track.pointAt(player.s, Track.laneOffset(player.lane));
       cam.heading = p.heading;
       cam.fx = Math.cos(p.heading); cam.fy = Math.sin(p.heading);
@@ -107,8 +116,9 @@
     // ---------- Sky and ground ----------
 
     function drawSky() {
-      rect(0, 0, W, 30, '#3b6fd4');
-      rect(0, 30, W, HORIZON - 30, '#6fa8ee');
+      const dy = HORIZON - 62; // taller skies push the scenery down
+      rect(0, 0, W, 30 + dy, '#3b6fd4');
+      rect(0, 30 + dy, W, HORIZON - 30 - dy, '#6fa8ee');
       // Scenery sits at fixed compass angles, so it slides as the camera turns.
       const place = (angle) => {
         let a = (cam.heading - angle) % (2 * Math.PI);
@@ -122,13 +132,13 @@
         rect(x, HORIZON - tall, 22, tall, i % 2 ? '#51669c' : '#44588a');
       }
       for (let i = 0; i < 8; i++) {
-        const x = place((i / 8) * 2 * Math.PI + 0.3), y = 7 + ((i * 7) % 17);
+        const x = place((i / 8) * 2 * Math.PI + 0.3), y = 7 + ((i * 7) % 17) + Math.round(dy * 0.7);
         rect(x, y, 30, 4, '#fff'); rect(x + 6, y - 3, 16, 3, '#fff');
       }
       for (let i = 0; i < 4; i++) { // floodlights
         const x = place((i / 4) * 2 * Math.PI + 0.9);
-        rect(x, 24, 2, HORIZON - 24, '#222a44'); rect(x - 5, 18, 12, 7, '#222a44');
-        for (let j = 0; j < 3; j++) rect(x - 3 + j * 3, 20, 2, 2, '#fff6b0');
+        rect(x, 24 + dy, 2, HORIZON - 24 - dy, '#222a44'); rect(x - 5, 18 + dy, 12, 7, '#222a44');
+        for (let j = 0; j < 3; j++) rect(x - 3 + j * 3, 20 + dy, 2, 2, '#fff6b0');
       }
     }
 
@@ -257,16 +267,18 @@
 
     function gantryItem(items) {
       const e = Track.HALF_WIDTH + 0.5;
+      // High enough to start above the screen, whatever the layout.
+      const low = BASE_CAM_H + (HORIZON + 20) / 30, high = low + 0.8;
       const mid = view(0.5, 0, 0);
       if (mid.d < NEAR + 0.5 || mid.d > 120) return;
       items.push({
         d: mid.d,
         draw() {
           for (const n of [-e, e]) {
-            poly([view(0.5, n - 0.12, 0), view(0.5, n + 0.12, 0), view(0.5, n + 0.12, 6), view(0.5, n - 0.12, 6)], '#ddd');
+            poly([view(0.5, n - 0.12, 0), view(0.5, n + 0.12, 0), view(0.5, n + 0.12, high), view(0.5, n - 0.12, high)], '#ddd');
           }
-          poly([view(0.5, -e, 5.2), view(0.5, e, 5.2), view(0.5, e, 6), view(0.5, -e, 6)], '#f9d56e');
-          const p = screen(view(0.5, 0, 5.8));
+          poly([view(0.5, -e, low), view(0.5, e, low), view(0.5, e, high), view(0.5, -e, high)], '#f9d56e');
+          const p = screen(view(0.5, 0, high - 0.2));
           if (p.s > 7 && p.y > 0) text('FINISH', p.x, p.y, '#222', Math.max(1, Math.floor(p.s / 14)), 'center');
         },
       });
@@ -299,14 +311,16 @@
     function speedLines(now) {
       const count = Math.round(Math.max(0, rush - 0.35) * 40);
       const frame = Math.floor(now / 45);
+      const reach = Math.hypot(W, H) / 367; // 1 on the 320x180 layout
+      const tall = 0.7 * (H / W) / (180 / 320);
       for (let i = 0; i < count; i++) {
         const a = noise(i, frame) * Math.PI * 2;
-        const from = 105 + noise(frame, i) * 70, length = 10 + rush * 28;
+        const from = (105 + noise(frame, i) * 70) * reach, length = 10 + rush * 28;
         ctx.strokeStyle = 'rgba(255,255,255,0.55)';
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.moveTo(W / 2 + Math.cos(a) * from, HORIZON + Math.sin(a) * from * 0.7);
-        ctx.lineTo(W / 2 + Math.cos(a) * (from + length), HORIZON + Math.sin(a) * (from + length) * 0.7);
+        ctx.moveTo(W / 2 + Math.cos(a) * from, HORIZON + Math.sin(a) * from * tall);
+        ctx.lineTo(W / 2 + Math.cos(a) * (from + length), HORIZON + Math.sin(a) * (from + length) * tall);
         ctx.stroke();
       }
     }
@@ -322,7 +336,7 @@
           d: spot.d - 0.01,
           draw() {
             const p = screen(spot);
-            const k = p.s / PIXELS_PER_METER;
+            const k = p.s / SPRITE_PPM;
             const height = Race.jumpHeight(r);
             const shadow = (22 - height * 7) * k;
             ctx.globalAlpha = 0.35;
@@ -361,7 +375,7 @@
     }
 
     function minimap(race) {
-      const ox = W - 34, oy = 39, k = 0.38;
+      const ox = W - 34, oy = 39 + screenLayout.top, k = 0.38;
       ctx.globalAlpha = 0.85;
       rect(ox - 32, oy - 17, 64, 34, '#10101c');
       ctx.globalAlpha = 1;
@@ -377,7 +391,13 @@
       }
     }
 
-    return { scene, minimap, text, rect, ctx, W, H };
+    resize({ ...Layout.LANDSCAPE, top: 0, bottom: 0, portrait: false });
+    return {
+      scene, minimap, text, rect, ctx, resize,
+      get W() { return W; },
+      get H() { return H; },
+      get layout() { return screenLayout; },
+    };
   }
 
   root.Renderer = { createRenderer };

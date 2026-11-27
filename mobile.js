@@ -1,16 +1,16 @@
-// Phone support: touch swipes, system keyboard for the name, landscape handling.
+// Phone and tablet support: touch swipes, system keyboard for the name, screen layout.
 (function (root) {
   'use strict';
 
   const TOUCH_TEXT_SIZE = 18; // 16px or more stops iOS from zooming into the field
 
-  function createMobile({ canvas, detector, Font }) {
+  function createMobile({ canvas, detector, Font, Layout }) {
     const coarse = window.matchMedia('(pointer: coarse)');
-    const portrait = window.matchMedia('(orientation: portrait)');
     let touch = coarse.matches;
     let lastTouchAt = -Infinity;
     const fingers = new Map(); // pointerId -> last clientY
 
+    const safeArea = document.getElementById('safe-area');
     const form = document.getElementById('name-form');
     const field = document.getElementById('name-input');
     field.maxLength = Font.NAME_MAX;
@@ -65,12 +65,42 @@
     field.addEventListener('blur', closeName);
     form.addEventListener('submit', (e) => { e.preventDefault(); closeName(); });
 
-    // Android can go full screen and lock landscape; iPhone Safari cannot.
+    const screenMin = () => Math.min(window.screen.width, window.screen.height);
+
+    function measure() {
+      const style = window.getComputedStyle(safeArea);
+      return Layout.compute({
+        touch,
+        screenMin: screenMin(),
+        width: window.innerWidth,
+        height: window.innerHeight,
+        inset: { top: parseFloat(style.paddingTop) || 0, bottom: parseFloat(style.paddingBottom) || 0 },
+      });
+    }
+
+    let current = null, currentKey = '';
+    // Re-reads the screen and calls `apply` when the layout changes. The layout is
+    // frozen while typing, because the keyboard shrinks the viewport.
+    function syncLayout(apply) {
+      if (current && !form.hidden) return;
+      const next = measure();
+      const key = JSON.stringify(next) + (next.portrait ? `${window.innerWidth}x${window.innerHeight}` : '');
+      if (key === currentKey) return;
+      current = next;
+      currentKey = key;
+      // Upright phones stretch to the exact viewport; the rest is sized by CSS.
+      canvas.style.width = next.portrait ? `${window.innerWidth}px` : '';
+      canvas.style.height = next.portrait ? `${window.innerHeight}px` : '';
+      apply(next);
+    }
+
+    // Android can go full screen and lock the orientation; iPhone Safari cannot.
     function enterFullscreen() {
       const page = document.documentElement;
       if (!touch || !page.requestFullscreen || document.fullscreenElement) return;
       page.requestFullscreen({ navigationUI: 'hide' })
-        .then(() => window.screen.orientation.lock('landscape'))
+        .then(() => window.screen.orientation.lock(
+          Layout.isPhone(touch, screenMin()) ? 'portrait' : 'landscape'))
         .catch(() => {});
     }
 
@@ -80,8 +110,9 @@
       enterFullscreen,
       isEditing: () => !form.hidden,
       isTouch: () => touch,
-      // True while the phone is held upright: the game waits.
-      needsRotation: () => touch && portrait.matches && form.hidden,
+      syncLayout,
+      // True while a tablet is held upright: the game waits.
+      needsRotation: () => !!current && current.rotate && form.hidden,
       // Mouse events that follow a touch must not count as mouse input.
       fromTouch: () => performance.now() - lastTouchAt < 800,
     };

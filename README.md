@@ -24,7 +24,10 @@ no build step.
 
 ## Phones
 
-Play in landscape. The race pauses while the phone is upright.
+| Device | Orientation |
+|---|---|
+| Phone | Upright, full screen with no letterboxing (sideways also works, in 16:9) |
+| Tablet | Landscape; the race pauses while held upright |
 
 | Action | Touch |
 |---|---|
@@ -96,7 +99,8 @@ node --test
 | `index.html` | Page and canvas |
 | `input.js` | Gesture detector (DOM-free, testable) |
 | `menu.js` | Runner selection screen |
-| `mobile.js` | Touch gestures, system keyboard and orientation |
+| `mobile.js` | Touch gestures, system keyboard and screen changes |
+| `layout.js` | Logical size and camera framing per device (testable) |
 | `countries.js` | Outfits and pixel flags |
 | `avatar.js` | Rotatable box model of the runner, with name on the shirt |
 | `font.js` | Bitmap font and name sanitizing |
