@@ -1,13 +1,21 @@
 # Finger Podium (PoC)
 
-Pixel-art Olympic games (400 m hurdles, long jump, shot put,
-archery, boxing and weightlifting) controlled
-with a laptop trackpad or a phone touch screen. Vanilla JavaScript and Canvas 2D. No dependencies,
+Pixel-art Olympic games in 24 events, controlled with a phone (touch and motion sensors) or a
+computer (trackpad, mouse and keyboard). Vanilla JavaScript and Canvas 2D. No dependencies,
 no build step.
+
+| Group | Events |
+|---|---|
+| Classics | 400 m hurdles, long jump, shot put, archery, boxing, weightlifting |
+| Track and field | 100 m dash, javelin, high jump, pole vault, discus, hammer |
+| Water and wheels | 100 m freestyle, diving, rowing, canoe slalom, surfing, track cycling |
+| Skill and duels | Speed climbing, balance beam, trap shooting, table tennis, penalty kicks, fencing |
+
+The goal of the career is a gold medal in every event, which opens the final.
 
 ## The start
 
-The 400 m hurdles and every long jump attempt begin with a starter: "On your marks", "Set" and,
+The 400 m hurdles, the timed races and every long jump attempt begin with a starter: "On your marks", "Set" and,
 after a random wait of 1 to 2 s, "Go!", said aloud and written on screen. Power only counts from
 the "go".
 
@@ -131,14 +139,90 @@ Tapping anywhere on that half of the screen works too.
 
 Android phones vibrate with the effort. iPhone Safari and computers do not vibrate.
 
+## Track and field
+
+All of them are one attempt at a time; throws have three and heights end after three misses.
+
+| Event | Phone | Computer |
+|---|---|---|
+| 100 m dash | Alternate thumbs down; flick up at the line to dip | Alternate Left / Right; Space dips |
+| Javelin | Swipe down to run; hold a finger still to draw the arm back; tilt for the angle; lift to throw | Arrows run; hold and release Space; Up / Down for the angle |
+| High jump | Run; tilt along the curve; flick up; tilt back or tap to arch | A / D run; arrows for the curve; Space jumps, then arches |
+| Pole vault | Run; hold a finger to plant; lift it in the green; tilt or tap to clear | Arrows run; hold and release Space; Space again |
+| Discus | Twist the wrist or draw circles; flick up while facing the sector | Alternate arrows; Space |
+| Hammer | Roll the phone or draw circles; tap while facing the sector | Alternate arrows; Space |
+
+## Water and wheels
+
+| Event | Phone | Computer |
+|---|---|---|
+| 100 m freestyle | Swipe or circle, left and right; tilt to breathe; flick up at the wall | A / L stroke; arrows breathe; Space turns |
+| Diving | Flick up; swipe to somersault; hold to open; tilt to straighten | Space; Up somersaults; Down opens; Left / Right adjust |
+| Rowing | Swipe down with two fingers on the beat | Space on the beat |
+| Canoe slalom | Tap left and right to paddle; tilt to steer through the gates | A / L paddle; arrows steer |
+| Surfing | Tilt to ride; flick up at the lip; circles spin in the air | Arrows ride; Space jumps; A / L spin |
+| Track cycling | Draw circles to pedal; tilt to change lane; ride in a slipstream to rest | A / L pedal; arrows steer |
+
+## Skill and duels
+
+| Event | Phone | Computer |
+|---|---|---|
+| Speed climbing | Tap the side of the lit hold; both sides for red holds | A / L; Space for both |
+| Balance beam | Tilt to balance; swipe where the arrow points | A / D balance; arrows for the moves |
+| Trap shooting | Move the phone to aim; tap to shoot | Mouse or arrows aim; click or Space |
+| Table tennis | Swipe up as the ball arrives, sideways to place it; tilt for spin | Space; arrows place it |
+| Penalty kicks | Swipe to shoot, curved if wanted; tilt or swipe sideways to save | Arrows and Space shoot; Left / Right save |
+| Fencing | Tilt or tap to parry high or low; flick up to lunge | Up / Down guard; Space lunges |
+
+Without a motion sensor (or without permission to use it), dragging a finger tilts instead; trap
+shooting aims by tapping. These controls were checked with emulated touches and have yet to be
+tuned on real phones.
+
+## Medals
+
+- Individual events: 1st is gold, 2nd silver and 3rd bronze. An athlete without a mark gets none.
+- Duels (table tennis, penalties, fencing): winning is gold, losing by 1 silver, by 2 or 3 bronze.
+- Boxing: winning is gold, a draw silver, losing on points bronze.
+- Any level counts. The best medal of each event shows on its card and on the runner setup.
+- Gold in all 24 events opens the final: the champion's podium.
+
+## Training and form
+
+The athlete has seven bars, from 0 to 100 (new athletes start at 20). Each event leans on a main
+bar (70%) and a second one (30%); the runner setup shows both.
+
+| Bar | Main bar of |
+|---|---|
+| Speed | 100 m, speed climbing |
+| Strength | Shot put, weightlifting, javelin, discus, hammer |
+| Jump | Long jump, high jump, pole vault |
+| Stamina | 400 m hurdles, swimming, rowing, canoe, cycling |
+| Aim | Archery, trap, penalty kicks |
+| Balance | Diving, surfing, balance beam |
+| Reflexes | Boxing, table tennis, fencing |
+
+The resulting form changes the strength of the rivals (from 8% stronger with empty bars to 12%
+weaker with full ones) and, in most events, how forgiving the controls are. It does not change the
+player's own marks. Tables live in `career.js`.
+
+Training is free and unlimited: run, jump rope, lift weights, box jumps, target shooting, yoga,
+reaction ball, eat and rest. **Doping** fills one random bar and takes 10 points from every other.
+Bars and medals are stored in the browser (`localStorage`).
+
 ## Screens
 
-1. **Title**: single player or multiplayer (multiplayer is not available yet).
-2. **Events**: pick a discipline.
+1. **Title**: single player, my athlete, training and the final (multiplayer is not available
+   yet). Keys: Enter, A, T and F.
+2. **Events**: four groups of six; arrows at the bottom or Page Up / Page Down change group.
 3. **Runner setup**: country, name and level, next to an athlete performing the event.
 4. **Competition** and results.
 
-To add a discipline: write its rules (`<name>.js`, DOM-free) and its screen (`<name>-ui.js`),
+To add a discipline in the shared engine: define its rules in a `rules-*.js` file (see
+`events.js`), draw it in `scenes.js`, describe its controls in `GUIDES` (`event-ui.js`), add it
+to `EVENTS` (`home.js`) and `career.js`, draw its card (`art-more.js`) and its setup movements
+(`poses.js`).
+
+To add a discipline with its own screen: write its rules (`<name>.js`, DOM-free) and its screen (`<name>-ui.js`),
 register the screen in `screens` (`game.js`), add both scripts to `index.html`, enable the event
 in `EVENTS` (`home.js`), draw its card in `art.js` and give it movements for the setup screen in
 `moves.js` (plus its height in `HEADROOM`, `menu.js`).
@@ -246,6 +330,9 @@ An OS momentum tail never adds swipes. All thresholds live in `DEFAULTS` in `inp
 
 ## Known limitations
 
+- Motion sensors need HTTPS (or `localhost`); iPhone asks for permission on the first tap.
+- Rotating or twisting events can make a phone slip: hold it tight.
+
 - Individual fingers are invisible to the browser; overlapping swipes may merge into one.
 - Natural scrolling is assumed (Safari auto-detects it). Press `I` if two fingers do not charge.
 - Lifting the fingers emits no event, so the jump is an upward flick instead.
@@ -299,5 +386,13 @@ Planned features are listed in [ROADMAP.md](ROADMAP.md).
 | `synth.js` | Menu music and decoding of the recorded sounds (testable) |
 | `sounds.js` | Announcer, starter, cheer and boo recordings, with their credits |
 | `audio.js` | Sound playback: unlocking, menu music, starter and crowd reactions (testable) |
+| `career.js` / `career-ui.js` | Medals, training bars (testable), athlete, training and champion screens |
+| `events.js` | Matches, attempts and standings of the shared engine (testable) |
+| `rules-race.js`, `rules-field.js`, `rules-skill.js` | Rules and a test bot for 18 events |
+| `event-ui.js` | Touch, tilt and keyboard input, HUD and results of those events |
+| `scenes.js` | Their drawings |
+| `touch.js` / `motion.js` | Gestures and tilt (testable) |
+| `poses.js` | Athlete poses of those events |
+| `art-more.js` | Their event cards |
 | `game.js` | Input wiring, state machine, HUD and main loop |
 | `*.test.js` | Unit tests |

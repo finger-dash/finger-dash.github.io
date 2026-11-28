@@ -59,6 +59,7 @@
     function start(profile) {
       bout = Boxing.createBout({
         difficulty: profile.difficulty, country: profile.country, playerName: profile.name.trim(),
+        edge: profile.edge,
       });
       popups = []; shake = 0; lean = 0; slip = null;
       presses.clear();
@@ -70,6 +71,14 @@
     // 'win' or 'loss' (a draw too) while the final table is up, otherwise null.
     const outcome = () => (!resultsShown() ? null
       : bout.result.winner === 'player' ? 'win' : 'loss');
+    // Winning is gold, a draw silver and losing on points bronze.
+    function medal() {
+      if (!resultsShown()) return null;
+      const { winner, how } = bout.result;
+      if (winner === 'player') return 'gold';
+      if (winner !== 'opponent') return 'silver';
+      return how === 'KO' ? null : 'bronze';
+    }
     const resultsReady = () => resultsShown() && bout.time > BOARD_DELAY + GUARD;
 
     // ---------- Input ----------
@@ -486,7 +495,7 @@
       ui.footer(false);
     }
 
-    return { lock: false, start, update, draw, key, click, down, move, up, pause, resultsShown, outcome };
+    return { lock: false, start, update, draw, key, click, down, move, up, pause, resultsShown, outcome, medal };
   }
 
   root.BoxingUi = { create };

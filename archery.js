@@ -38,9 +38,12 @@
   }
 
   function createContest({
-    difficulty = 'normal', rng = Math.random, playerName = 'YOU', country = 'ARG', touch = false,
+    difficulty = 'normal', rng = Math.random, playerName = 'YOU', country = 'ARG',
+    edge = { rivals: 1, ease: 1 }, touch = false,
   } = {}) {
-    const level = DIFFICULTY[difficulty] || DIFFICULTY.normal;
+    const set = DIFFICULTY[difficulty] || DIFFICULTY.normal;
+    // The rivals' bias is in points per arrow.
+    const level = { wind: set.wind, sway: set.sway / edge.ease, rivals: set.rivals + (edge.rivals - 1) * 8 };
     const athletes = Contest.athletes({
       rng, country, playerName, bases: BASE_SCORES,
       plan: (base) => Array.from({ length: ARROWS }, () =>

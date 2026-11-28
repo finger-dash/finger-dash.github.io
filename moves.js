@@ -181,6 +181,9 @@
     },
   };
 
+  const node = typeof require === 'function';
+  Object.assign(MOVES, (node ? require('./poses.js') : root.Poses).demos);
+
   // The athlete's pose `t` seconds into the demonstration of an event.
   function pose(event, t) {
     return (MOVES[event] || MOVES.hurdles400)(t);

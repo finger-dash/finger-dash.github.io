@@ -33,6 +33,7 @@
     function start(profile) {
       contest = ShotPut.createContest({
         difficulty: profile.difficulty, country: profile.country, playerName: profile.name.trim(),
+        edge: profile.edge,
       });
       newAttempt();
     }
@@ -44,6 +45,8 @@
       const first = ShotPut.standings(contest)[0];
       return first.isPlayer && ShotPut.best(first) ? 'win' : 'loss';
     }
+    const medal = () => (outcome() === null || !ShotPut.best(contest.player) ? null
+      : Career.forPlace(ShotPut.standings(contest).indexOf(contest.player)));
     const resultsReady = () => resultsShown() && contest.time > BOARD_DELAY + GUARD;
 
     // ---------- Input ----------
@@ -320,7 +323,7 @@
       ui.footer(true);
     }
 
-    return { lock: true, start, update, draw, key, click, down, move, up, wheel, pause, resultsShown, outcome };
+    return { lock: true, start, update, draw, key, click, down, move, up, wheel, pause, resultsShown, outcome, medal };
   }
 
   root.ShotPutUi = { create };

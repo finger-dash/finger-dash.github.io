@@ -20,8 +20,9 @@
 
   function createContest({
     difficulty = 'normal', rng = Math.random, playerName = 'YOU', country = 'ARG',
+    edge = { rivals: 1, ease: 1 },
   } = {}) {
-    const factor = DIFFICULTY[difficulty] || 1;
+    const factor = (DIFFICULTY[difficulty] || 1) * edge.rivals;
     const athletes = Contest.athletes({
       rng, country, playerName, bases: BASE_MARKS,
       plan: (base) => Array.from({ length: ATTEMPTS }, () =>

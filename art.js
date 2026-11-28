@@ -153,6 +153,8 @@
       },
     };
 
+    Object.assign(SCENES, root.ArtMore.cards({ rect, line, path }));
+
     function event(id, x, y) {
       x = Math.round(x); y = Math.round(y);
       const { ctx } = view;

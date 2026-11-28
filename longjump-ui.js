@@ -27,6 +27,7 @@
     function start(profile) {
       contest = LongJump.createContest({
         difficulty: profile.difficulty, country: profile.country, playerName: profile.name.trim(),
+        edge: profile.edge,
         tapAngle: mobile.isTouch(), starter: true,
       });
       newAttempt();
@@ -39,6 +40,8 @@
       const first = LongJump.standings(contest)[0];
       return first.isPlayer && LongJump.best(first) ? 'win' : 'loss';
     }
+    const medal = () => (outcome() === null || !LongJump.best(contest.player) ? null
+      : Career.forPlace(LongJump.standings(contest).indexOf(contest.player)));
     const resultsReady = () => resultsShown() && contest.time > BOARD_DELAY + GUARD;
 
     // ---------- Input ----------
@@ -313,7 +316,7 @@
       draw();
     }
 
-    return { lock: true, start, update, draw: render, flick, down, key, keyUp, click, resultsShown, outcome };
+    return { lock: true, start, update, draw: render, flick, down, key, keyUp, click, resultsShown, outcome, medal };
   }
 
   root.LongJumpUi = { create };

@@ -27,7 +27,9 @@ test('only single player can be chosen on the title screen', () => {
 test('only the finished events can be chosen', () => {
   const { view, home } = make();
   const { card } = Home.eventBoxes(view.layout);
+  const { next } = Home.eventBoxes(view.layout);
   Home.EVENTS.forEach((event, i) => {
+    if (i && i % Home.PAGE === 0) home.events.click(...centre(next));
     assert.deepStrictEqual(home.events.click(...centre(card(i))), { type: 'event', id: event.id });
   });
 });
@@ -35,12 +37,25 @@ test('only the finished events can be chosen', () => {
 test('keyboard moves over the events and wraps around', () => {
   const { home } = make();
   home.events.key({ key: 'ArrowLeft' }); // wraps to the last one
-  assert.deepStrictEqual(home.events.key({ key: 'Enter' }), { type: 'event', id: 'weightlifting' });
+  assert.deepStrictEqual(home.events.key({ key: 'Enter' }), { type: 'event', id: 'fencing' });
   home.events.key({ key: 'ArrowRight' });
   assert.deepStrictEqual(home.events.key({ key: 'Enter' }), { type: 'event', id: 'hurdles400' });
   home.events.key({ key: 'ArrowRight' });
   assert.deepStrictEqual(home.events.key({ key: 'Enter' }), { type: 'event', id: 'longJump' });
   assert.deepStrictEqual(home.events.key({ key: 'Escape' }), { type: 'back' });
+});
+
+test('there are four full groups of events', () => {
+  assert.strictEqual(Home.EVENTS.length, Home.PAGES.length * Home.PAGE);
+});
+
+test('the pages turn both ways', () => {
+  const { view, home } = make();
+  const { previous, card } = Home.eventBoxes(view.layout);
+  home.events.click(...centre(previous));
+  assert.deepStrictEqual(home.events.click(...centre(card(0))), { type: 'event', id: 'climbing' });
+  home.events.key({ key: 'PageDown' });
+  assert.deepStrictEqual(home.events.key({ key: 'Enter' }), { type: 'event', id: 'hurdles400' });
 });
 
 test('the back button returns to the title', () => {
@@ -53,7 +68,8 @@ test('every box fits on screen and event cards hold their picture', () => {
     const { view } = make(device);
     const { w, h, bottom } = view.layout;
     const events = Home.eventBoxes(view.layout);
-    const boxes = [...Home.titleBoxes(view.layout).modes, events.back,
+    const title = Home.titleBoxes(view.layout);
+    const boxes = [...title.modes, ...title.extras, title.tally, events.back, events.previous, events.next,
       ...Home.EVENTS.map((_, i) => events.card(i))];
     for (const b of boxes) {
       assert.ok(b.x >= 0 && b.x + b.w <= w, `${name}: horizontal overflow`);
@@ -62,4 +78,28 @@ test('every box fits on screen and event cards hold their picture', () => {
     const card = events.card(0);
     assert.ok(card.w >= 90 && card.h >= 61, `${name}: card too small (${card.w}x${card.h})`);
   }
+});
+
+test('the athlete menus open from the title screen', () => {
+  const { view, home } = make();
+  const { extras } = Home.titleBoxes(view.layout);
+  assert.deepStrictEqual(home.title.click(...centre(extras[0])), { type: 'screen', id: 'athlete' });
+  assert.deepStrictEqual(home.title.key({ key: 't' }), { type: 'screen', id: 'training' });
+});
+
+test('the final opens only with every gold', () => {
+  const medals = {};
+  const { view } = make();
+  const home = Home.createHome(view, null, () => medals);
+  const { tally } = Home.titleBoxes(view.layout);
+  assert.strictEqual(home.title.click(...centre(tally)), null);
+  for (const event of Home.EVENTS) medals[event.id] = 'gold';
+  assert.deepStrictEqual(home.title.click(...centre(tally)), { type: 'screen', id: 'champion' });
+});
+
+test('pointing at the arrows does not turn the page', () => {
+  const { view, home } = make();
+  const { next, card } = Home.eventBoxes(view.layout);
+  assert.ok(home.events.hovering(...centre(next)));
+  assert.deepStrictEqual(home.events.click(...centre(card(0))), { type: 'event', id: 'hurdles400' });
 });

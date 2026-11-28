@@ -55,6 +55,7 @@
     function start(profile) {
       contest = Weightlifting.createContest({
         difficulty: profile.difficulty, country: profile.country, playerName: profile.name.trim(),
+        edge: profile.edge,
       });
       newAttempt();
     }
@@ -66,6 +67,8 @@
       const first = Weightlifting.standings(contest)[0];
       return first.isPlayer && Weightlifting.best(first) ? 'win' : 'loss';
     }
+    const medal = () => (outcome() === null || !Weightlifting.best(contest.player) ? null
+      : Career.forPlace(Weightlifting.standings(contest).indexOf(contest.player)));
     const resultsReady = () => resultsShown() && contest.time > BOARD_DELAY + GUARD;
 
     // ---------- Layout ----------
@@ -489,7 +492,7 @@
       ui.footer(false);
     }
 
-    return { lock: false, start, update, draw, key, keyUp, click, down, pause, resultsShown, outcome };
+    return { lock: false, start, update, draw, key, keyUp, click, down, pause, resultsShown, outcome, medal };
   }
 
   root.WeightliftingUi = { create };

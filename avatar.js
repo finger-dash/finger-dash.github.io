@@ -183,6 +183,8 @@
         items.push({ chain: [limbTop[2], nock, limbLow[2]], widths: [0.5, 0.5], colors: ['#e8ecf4', '#e8ecf4'], plain: true, bias: -2 });
         if (p.nock) items.push({ chain: [nock, [x, y + 0.5, z + 7]], widths: [1.2], colors: ['#d8b47a'], bias: -4 });
       }
+      if (p.type === 'stick') items.push({ chain: [p.from, p.to], widths: [p.width], colors: [p.color], bias: -2.8 });
+      if (p.type === 'paddle') items.push({ x: p.at[0], y: p.at[1] - 5, z: p.at[2], w: 10, h: 10, d: 10, color: '#d52b1e', round: true, bias: -6 });
       if (p.type === 'arrow') items.push({ chain: [p.from, p.to], widths: [1.4], colors: ['#d8b47a'] });
       if (p.type === 'barbell') {
         // `tilt` raises the end on the athlete's right, `sag` bends both ends down.
@@ -378,9 +380,20 @@
     }
 
     // Paints the runner with its feet at (x, y) on the target context.
+    // A move may `roll` the figure around its middle: head towards the right of a
+    // runner seen from the side.
     function draw(ctx, x, y, scale, look, pose, yaw = 0) {
       paint(look, pose, yaw);
+      const roll = (pose.move && pose.move.roll) || 0;
+      if (roll) {
+        const middle = y - 34 * scale;
+        ctx.save();
+        ctx.translate(x, middle);
+        ctx.rotate(roll);
+        ctx.translate(-x, -middle);
+      }
       ctx.drawImage(sprite, x - FEET_X * scale, y - FEET_Y * scale, WIDTH * scale, HEIGHT * scale);
+      if (roll) ctx.restore();
     }
 
     // The same limbs painted straight on a context, for the ones that come

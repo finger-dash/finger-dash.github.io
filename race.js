@@ -38,6 +38,7 @@
 
   function createRace({
     difficulty = 'normal', rng = Math.random, playerName = 'YOU', country = 'ARG',
+    edge = { rivals: 1 },
   } = {}) {
     const speeds = shuffle(BASE_SPEEDS.slice(), rng); // who is fast today
     // Rivals never wear the player's colors.
@@ -50,7 +51,7 @@
         continue;
       }
       const r = createRunner(RIVALS[k], lane, false, others[k]);
-      r.pace = (speeds[k] + (rng() - 0.5) * 0.4) * DIFFICULTY[difficulty];
+      r.pace = (speeds[k] + (rng() - 0.5) * 0.4) * DIFFICULTY[difficulty] * edge.rivals;
       r.reaction = 0.15 + rng() * 0.35;
       r.wave = 0.3 + rng() * 0.5;
       r.phase = rng() * 6.28;

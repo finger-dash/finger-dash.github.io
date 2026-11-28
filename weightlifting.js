@@ -49,8 +49,14 @@
 
   function createContest({
     difficulty = 'normal', rng = Math.random, playerName = 'YOU', country = 'ARG',
+    edge = { rivals: 1, ease: 1 },
   } = {}) {
-    const spec = DIFFICULTY[difficulty] || DIFFICULTY.normal;
+    const set = DIFFICULTY[difficulty] || DIFFICULTY.normal;
+    // A few percent in kilos is a lot, so the form moves the rivals less here.
+    const spec = {
+      sink: set.sink / edge.ease, zone: set.zone * edge.ease,
+      rivals: set.rivals * (1 + (edge.rivals - 1) * 0.6),
+    };
     const athletes = Contest.athletes({
       rng, country, playerName, bases: BASE_MARKS,
       plan(base) {

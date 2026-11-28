@@ -36,10 +36,12 @@
   const BASE_MARKS = [5.9, 6.4, 6.9, 7.4, 7.9];
 
   function createContest({
-    difficulty = 'normal', rng = Math.random, playerName = 'YOU', country = 'ARG', tapAngle = false,
+    difficulty = 'normal', rng = Math.random, playerName = 'YOU', country = 'ARG',
+    edge = { rivals: 1, ease: 1 }, tapAngle = false,
     starter = false,
   } = {}) {
-    const level = DIFFICULTY[difficulty] || DIFFICULTY.normal;
+    const base_ = DIFFICULTY[difficulty] || DIFFICULTY.normal;
+    const level = { sweep: base_.sweep / edge.ease, rivals: base_.rivals * edge.rivals };
     const athletes = Contest.athletes({
       rng, country, playerName, bases: BASE_MARKS,
       plan: (base) => Array.from({ length: ATTEMPTS }, () =>

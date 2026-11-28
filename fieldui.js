@@ -14,11 +14,13 @@
       ctx.globalAlpha = 1;
     }
 
-    // Centred lines of small text on a translucent box.
-    function lines(list, y) {
+    // Centred lines of small text on a translucent box; `x` moves its centre.
+    // `x` may be a function of the box width.
+    function lines(list, y, x = view.W / 2) {
       const w = Math.max(...list.map((l) => l.length)) * 4 + 12;
-      shade(view.W / 2 - w / 2, y - 4, w, list.length * 9 + 4);
-      list.forEach((l, i) => text(l, view.W / 2, y + i * 9, '#fff', 1, 'center'));
+      const centre = typeof x === 'function' ? x(w) : x;
+      shade(centre - w / 2, y - 4, w, list.length * 9 + 4);
+      list.forEach((l, i) => text(l, centre, y + i * 9, '#fff', 1, 'center'));
     }
 
     function topLeft(first, second) {

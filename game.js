@@ -7,7 +7,22 @@
   const menu = Menu.createMenu(view, Avatar.createAvatar(Countries, Font, 4), Countries, Font);
   const { text, rect, ctx } = view;
   const art = Art.createArt(view, Avatar.createAvatar(Countries, Font, 4), Countries);
-  const home = Home.createHome(view, art);
+  // Training bars and medals, kept between visits.
+  const store = {
+    career: null,
+    save: () => save('career', JSON.stringify(store.career)),
+  };
+  try { store.career = Career.create(JSON.parse(localStorage.getItem('career'))); } catch (_) {}
+  if (!store.career) store.career = Career.create();
+  const home = Home.createHome(view, art, () => store.career.medals);
+  const careerUi = CareerUi.create({
+    view, store, avatar: Avatar.createAvatar(Countries, Font, 4),
+    look: () => ({
+      skin: '#e0a070', hair: '#3a2418', kit: Countries.byId(profile.country).kit,
+      name: profile.name, number: '10', country: profile.country, headband: true,
+    }),
+  });
+  let awarded = null; // medal of the final table on screen: {medal, fresh}
 
   let state, race, starter, resultsAt, jumps, lastSource;
   let eventId = 'hurdles400';
@@ -59,6 +74,11 @@
     boxing: BoxingUi.create(parts),
     weightlifting: WeightliftingUi.create(parts),
   };
+  const motion = Motion.create(window);
+  const athlete = Avatar.createAvatar(Countries, Font, 4);
+  for (const id of Object.keys(Events.specs)) {
+    screens[id] = EventUi.create(id, { ...parts, avatar: athlete, motion });
+  }
   let active = null; // screen of the event being played, null for the hurdles
 
   // ---------- Pause (computers) ----------
@@ -119,6 +139,7 @@
     detector.reset();
     race = Race.createRace({
       difficulty: profile.difficulty, country: profile.country, playerName: profile.name.trim(),
+      edge: Career.edge(store.career, 'hurdles400'),
     });
     starter = Starter.create();
     jumps = 0; lastSource = '-';
@@ -127,6 +148,7 @@
   // Screens: title -> events -> menu (runner setup) -> start -> running -> finished.
   const racing = () => state === 'running' || state === 'finished';
   const homeScreen = () => (state === 'title' ? home.title : state === 'events' ? home.events : null);
+  const careerScreen = () => state === 'athlete' || state === 'training' || state === 'champion';
 
   function show(screen) {
     state = screen;
@@ -148,6 +170,7 @@
       eventId = action.id;
       openMenu();
     }
+    else if (action.type === 'screen') show(action.id);
     else if (action.type === 'back') show('title');
   }
 
@@ -157,6 +180,7 @@
     newRace();
     active = screens[eventId] || null;
     if (active) {
+      profile.edge = Career.edge(store.career, eventId);
       active.start(profile);
       state = 'event';
     } else {
@@ -258,6 +282,14 @@
       }
       return;
     }
+    if (careerScreen()) {
+      const action = e.repeat ? null : careerUi.key(state, e, performance.now());
+      if (action) {
+        e.preventDefault();
+        homeAction(action);
+      }
+      return;
+    }
     if (state === 'menu') {
       const action = menu.key(profile, e);
       if (action) e.preventDefault();
@@ -347,10 +379,12 @@
 
   window.addEventListener('mousemove', (e) => {
     const screen = state === 'menu' ? menu : homeScreen();
+    if (!paused && state === 'event' && active.hover) active.hover(...point(e));
     if (paused) {
       const boxes = pauseBoxes(), at = point(e);
       canvas.style.cursor = over(boxes.resume, ...at) || over(boxes.menu, ...at) ? 'pointer' : 'default';
     } else if (screen) canvas.style.cursor = screen.hovering(...point(e)) ? 'pointer' : 'default';
+    else if (careerScreen()) canvas.style.cursor = careerUi.hovering(state, ...point(e)) ? 'pointer' : 'default';
     else if (state === 'finished' || state === 'event') canvas.style.cursor = 'default';
   });
 
@@ -374,6 +408,7 @@
       return;
     }
     if (homeScreen()) homeAction(homeScreen().click(x, y));
+    else if (careerScreen()) homeAction(careerUi.click(state, x, y, performance.now()));
     else if (state === 'menu') menuAction(menu.click(profile, x, y));
     else if (state === 'event') active.click(x, y, e.pointerType);
     else if (state === 'finished') {
@@ -563,13 +598,41 @@
   // Music in the menus. In a competition, the crowd cheers or boos when the final table
   // comes up, and hushes when it goes away.
   function soundtrack() {
-    sound.menu(state === 'title' || state === 'events' || state === 'menu');
+    sound.menu(state === 'title' || state === 'events' || state === 'menu' || careerScreen());
     let outcome = null;
     if (state === 'finished') outcome = race.winner && race.winner.isPlayer ? 'win' : 'loss';
     else if (state === 'event') outcome = active.outcome();
     if (outcome === heard) return;
     heard = outcome;
     sound.react(outcome);
+  }
+
+  // Medal for the final table on screen, or null.
+  function medalNow() {
+    if (state === 'event') return active.medal();
+    if (state !== 'finished' || race.disqualified || race.player.finishTime === null) return null;
+    return Career.forPlace(Race.standings(race).indexOf(race.player));
+  }
+
+  function award() {
+    const medal = medalNow();
+    if (!medal) { awarded = null; return; }
+    if (awarded) return;
+    const event = active ? eventId : 'hurdles400';
+    awarded = { medal, fresh: Career.award(store.career, event, medal) };
+    if (awarded.fresh) store.save();
+  }
+
+  // Announced above the final table.
+  function drawMedal() {
+    const { panel: table } = resultsBoxes();
+    const y = Math.max(0, table.y - 19);
+    const label = Career.champion(store.career) && awarded.fresh ? 'THE FINAL IS OPEN!'
+      : `${awarded.fresh ? 'NEW ' : ''}${awarded.medal.toUpperCase()} MEDAL!`;
+    const wide = label.length * 4 + 28, x = Math.round((view.layout.w - wide) / 2);
+    panel(x, y, wide, 17);
+    CareerUi.medal(rect, awarded.medal, x + 10, y + 1);
+    text(label, x + 21, y + 6, CareerUi.MEDAL_COLORS[awarded.medal]);
   }
 
   let last = performance.now();
@@ -580,13 +643,19 @@
     mobile.syncLayout(view.resize);
     update(dt, now);
     soundtrack();
+    award();
     const shown = paused ? pausedAt : now; // animations stop too
     if (state === 'title') {
       home.title.draw(profile.country, now, mobile.isTouch());
     } else if (state === 'events') {
       home.events.draw(mobile.isTouch());
     } else if (state === 'menu') {
-      menu.draw(profile, now, mobile.isTouch(), Home.EVENTS.find((ev) => ev.id === eventId));
+      menu.draw(profile, now, mobile.isTouch(), {
+        ...Home.EVENTS.find((ev) => ev.id === eventId),
+        needs: Career.needs(store.career, eventId), medal: store.career.medals[eventId],
+      });
+    } else if (careerScreen()) {
+      careerUi.draw(state, now, mobile.isTouch(), art);
     } else if (state === 'event') {
       active.draw(shown);
     } else {
@@ -594,6 +663,7 @@
       if (state !== 'finished') drawHud();
       drawOverlay();
     }
+    if (awarded) drawMedal();
     if (paused) drawPause();
     document.body.classList.toggle('rotate', mobile.needsRotation());
     requestAnimationFrame(frame);

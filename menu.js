@@ -4,7 +4,10 @@
 
   const LEVELS = ['easy', 'normal', 'hard'];
   // Height, in model units, that the demonstration of each event reaches.
-  const HEADROOM = { hurdles400: 82, longJump: 84, shotPut: 88, archery: 70, boxing: 70, weightlifting: 84 };
+  const HEADROOM = {
+    hurdles400: 82, longJump: 84, shotPut: 88, archery: 70, boxing: 70, weightlifting: 84,
+    javelin: 88, highJump: 90, poleVault: 84, diving: 92,
+  };
   const inside = (b, x, y) => x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h;
   const box = (x, y, w, h) => ({ x, y, w, h });
 
@@ -134,8 +137,9 @@
       rect(p.x, p.y, p.w, p.h, '#0d0d1f');
       // The athlete shrinks on short screens; below the name there is room for the highest move.
       const tall = HEADROOM[event.id] || 84;
-      const scale = Math.min(2, (p.h - 22) / (tall + 4));
-      const feet = Math.round(p.y + (p.h + 10 + tall * scale) / 2);
+      const below = event.needs ? 20 : 0; // the bars this event leans on
+      const scale = Math.min(2, (p.h - 22 - below) / (tall + 4));
+      const feet = Math.round(p.y + (p.h - below + 10 + tall * scale) / 2);
       ctx.save();
       ctx.beginPath();
       ctx.rect(p.x, p.y, p.w, p.h);
@@ -150,6 +154,14 @@
       avatar.draw(ctx, cx, feet, scale, look, { move: Moves.pose(event.id, t) }, t * 1.1);
       ctx.restore();
       text(country.name, cx, p.y + 4, '#fff', 1, 'center');
+      if (event.medal) root.CareerUi.medal(rect, event.medal, p.x + p.w - 10, p.y + 3);
+      (event.needs || []).forEach((need, i) => {
+        const y = p.y + p.h - 19 + i * 9, wide = p.w - 62;
+        text(need.name, p.x + 4, y, '#9ab');
+        rect(p.x + 40, y, wide, 5, '#25254a');
+        rect(p.x + 40, y, Math.round((wide * need.value) / 100), 5, i ? '#74acdf' : '#5be37d');
+        text(`${need.value}%`, p.x + p.w - 4, y, '#fff', 1, 'right');
+      });
 
       const s = b.start;
       rect(s.x, s.y, s.w, s.h, '#5be37d');

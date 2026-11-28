@@ -30,6 +30,7 @@
     function start(profile) {
       contest = Archery.createContest({
         difficulty: profile.difficulty, country: profile.country, playerName: profile.name.trim(),
+        edge: profile.edge,
         touch: mobile.isTouch(),
       });
       newArrow();
@@ -41,6 +42,8 @@
       if (!resultsShown() || !Archery.isOver(contest)) return null;
       return Archery.standings(contest)[0].isPlayer ? 'win' : 'loss';
     }
+    const medal = () => (outcome() === null ? null
+      : Career.forPlace(Archery.standings(contest).indexOf(contest.player)));
     const resultsReady = () => resultsShown() && contest.time > BOARD_DELAY + GUARD;
 
     // ---------- Input ----------
@@ -377,7 +380,7 @@
       ui.footer(contest.phase === 'aim');
     }
 
-    return { lock: true, start, update, draw, key, keyUp, click, down, move, up, pause, resultsShown, outcome };
+    return { lock: true, start, update, draw, key, keyUp, click, down, move, up, pause, resultsShown, outcome, medal };
   }
 
   root.ArcheryUi = { create };

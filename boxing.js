@@ -45,11 +45,18 @@
 
   function createBout({
     difficulty = 'normal', rng = Math.random, playerName = 'YOU', country = 'ARG',
+    edge = { rivals: 1, ease: 1 },
   } = {}) {
     const others = Countries.COUNTRIES.map((c) => c.id).filter((id) => id !== country);
     const pick = (list) => list[Math.floor(rng() * list.length)];
+    const set = DIFFICULTY[difficulty] || DIFFICULTY.normal;
+    // A fitter boxer sees the punches coming sooner and takes them better.
+    const level = {
+      ...set, windup: set.windup * edge.ease, damage: Math.round(set.damage / edge.ease),
+      regen: set.regen / edge.ease,
+    };
     const bout = {
-      difficulty, level: DIFFICULTY[difficulty] || DIFFICULTY.normal, rng,
+      difficulty, level, rng,
       phase: 'intro', time: 0, left: DURATION, result: null,
       player: {
         name: playerName || 'YOU', country, health: HEALTH, stamina: STAMINA,
