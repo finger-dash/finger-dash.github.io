@@ -23,9 +23,9 @@
   const FLIGHT_TIME = 2.2;  // seconds on screen
 
   const DIFFICULTY = {
-    easy: { wind: 3, sway: 0.025, rivals: -0.8 },
-    normal: { wind: 4.5, sway: 0.045, rivals: 0 },
-    hard: { wind: 6, sway: 0.07, rivals: 0.5 },
+    easy: { wind: 4, sway: 0.04, rivals: -0.35 },
+    normal: { wind: 5, sway: 0.056, rivals: 0.05 },
+    hard: { wind: 6, sway: 0.075, rivals: 0.4 },
   };
   const BASE_SCORES = [6.4, 7.1, 7.7, 8.3, 8.9]; // average per arrow
 

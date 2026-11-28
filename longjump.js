@@ -29,9 +29,9 @@
 
   // sweep: angle meter speed in degrees per second. rivals: strength factor.
   const DIFFICULTY = {
-    easy: { sweep: 34, rivals: 0.9 },
-    normal: { sweep: 44, rivals: 1 },
-    hard: { sweep: 58, rivals: 1.07 },
+    easy: { sweep: 42, rivals: 0.93 },
+    normal: { sweep: 52, rivals: 0.99 },
+    hard: { sweep: 66, rivals: 1.03 },
   };
   const BASE_MARKS = [5.9, 6.4, 6.9, 7.4, 7.9];
 

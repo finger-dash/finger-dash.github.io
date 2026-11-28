@@ -56,7 +56,7 @@ hurdles and, in the long jump, makes that attempt a foul.
 - Three attempts, 8 seconds each to spin and throw. The best mark wins.
 - Circles build power; an upward swipe throws. The shot leaves exactly where the athlete is
   facing at that moment, whatever the direction of the swipe: swipe while he faces the field.
-- It counts inside a sector of 60 / 45 / 35 degrees to each side (easy / normal / hard) and is a
+- It counts inside a sector of 50 / 42 / 33 degrees to each side (easy / normal / hard) and is a
   foul outside it, or WRONG WAY beyond 90 degrees. Crooked throws lose a little distance.
 - A swipe too short to throw while the finger moves throws when the finger is lifted.
 - Android phones vibrate after each full turn.
@@ -205,8 +205,17 @@ bar (70%) and a second one (30%); the runner setup shows both.
 missing bars; choosing it explains what it needs and leads to training. Athletes saved before this
 rule had their lower bars raised to 50 once.
 
-**Competing wears the athlete out:** starting a competition (or retrying) takes 10 points from the
-event's main bar and 5 from the second one, even if it is abandoned. The form of that competition
+**Competing wears the athlete out:** starting a competition (or retrying) takes points from the
+event's main and second bars, even if it is abandoned. Harder levels cost less, as the medal is
+further away:
+
+| Level | Main bar | Second bar |
+|---|---|---|
+| Easy | 10 | 5 |
+| Normal | 7 | 4 |
+| Hard | 4 | 2 |
+
+ The form of that competition
 is taken before paying. The runner setup shows the cost; a tired athlete cannot start and is shown
 what to train.
 

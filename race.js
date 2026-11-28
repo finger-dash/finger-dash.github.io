@@ -16,7 +16,7 @@
   // 400 m hurdles layout: first at 45 m, then every 35 m.
   const HURDLES = Array.from({ length: 10 }, (_, i) => 45 + i * 35);
 
-  const DIFFICULTY = { easy: 0.85, normal: 1, hard: 1.12 };
+  const DIFFICULTY = { easy: 0.96, normal: 1.06, hard: 1.13 };
   const RIVALS = ['VEGA', 'ROSSI', 'TANAKA', 'OKORO', 'SILVA'];
   const BASE_SPEEDS = [8.6, 9.5, 10.4, 11.3, 12.2];
 

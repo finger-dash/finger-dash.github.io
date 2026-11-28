@@ -222,7 +222,7 @@
       state = 'start';
     }
     // Spent after the form of this competition has been taken.
-    Career.wear(store.career, eventId);
+    Career.wear(store.career, eventId, profile.difficulty);
     store.save();
     canvas.style.cursor = '';
     mobile.closeName();
@@ -689,7 +689,7 @@
     } else if (state === 'menu') {
       menu.draw(profile, now, mobile.isTouch(), {
         ...Home.EVENTS.find((ev) => ev.id === eventId),
-        needs: Career.needs(store.career, eventId), medal: store.career.medals[eventId],
+        needs: Career.needs(store.career, eventId, profile.difficulty), medal: store.career.medals[eventId],
         locked: Career.missing(store.career, eventId).length > 0,
       });
     } else if (careerScreen()) {

@@ -37,7 +37,7 @@
   define({
     id: 'javelin', name: 'JAVELIN', kind: 'distance', attempts: 3, run: true,
     LINE, ARM_ZONE, BEST_THROW,
-    rival: marks(66, 12),
+    rival: marks(63, 11),
     create: (env) => attempt(env, { phase: 'run', s: 0, speed: 0, cycle: 0, angle: 20, armed: 0, flight: null }),
     arm(s) {
       if (s.phase !== 'run' || s.s < LINE - ARM_ZONE) return;
@@ -105,7 +105,7 @@
 
   define({
     id: 'discus', name: 'DISCUS', kind: 'distance', attempts: 3, SECTOR, twist: true,
-    rival: marks(55, 9),
+    rival: marks(53, 8),
     create: (env) => attempt(env, { phase: 'spin', rate: 0, turn: Math.PI, flight: null, foul: false }),
     step(s, dt, input) {
       tick(s, dt);
@@ -130,7 +130,7 @@
 
   define({
     id: 'hammer', name: 'HAMMER', kind: 'distance', attempts: 3, SECTOR,
-    rival: marks(65, 12),
+    rival: marks(62, 11),
     create: (env) => attempt(env, { phase: 'spin', rate: 0, turn: Math.PI, roll: null, flight: null, foul: false }),
     step(s, dt, input) {
       tick(s, dt);
@@ -165,7 +165,7 @@
     id: 'highJump', name: 'HIGH JUMP', kind: 'height', run: true, JUMP_AT,
     bars: [1.9, 2.0, 2.1, 2.18, 2.24, 2.28, 2.32, 2.36, 2.4, 2.45],
     rival: (rng, level) => {
-      const bars = [2.0, 2.1, 2.18, 2.24, 2.28, 2.32];
+      const bars = [2.1, 2.18, 2.24, 2.28, 2.32, 2.36];
       return bars[clamp(Math.floor((rng() * 5 + 0.5) * level.rivals), 0, 5)];
     },
     // Where the curve asks the phone to lean, -1..1.
@@ -225,7 +225,7 @@
     id: 'poleVault', name: 'POLE VAULT', kind: 'height', run: true, BOX,
     bars: [4.5, 4.8, 5.05, 5.25, 5.45, 5.6, 5.75, 5.9, 6.0, 6.1],
     rival: (rng, level) => {
-      const bars = [4.8, 5.05, 5.25, 5.45, 5.6, 5.75];
+      const bars = [5.05, 5.25, 5.45, 5.6, 5.75, 5.9];
       return bars[clamp(Math.floor((rng() * 5 + 0.5) * level.rivals), 0, 5)];
     },
     create: (env) => attempt(env, {
@@ -293,7 +293,7 @@
   define({
     id: 'diving', name: 'DIVING', kind: 'score', attempts: 3,
     FALL,
-    rival: (rng, level) => round((52 + (rng() - 0.5) * 24) * level.rivals),
+    rival: (rng, level) => round((53 + (rng() - 0.5) * 22) * level.rivals),
     create: (env) => attempt(env, { angle: 0, rate: 0, open: false, jump: 0, twists: 0, splash: 0 }),
     step(s, dt, input) {
       tick(s, dt);

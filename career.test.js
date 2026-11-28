@@ -168,7 +168,7 @@ test('athletes saved with low bars are raised once', () => {
 
 test('competing spends the two bars of the event', () => {
   const career = Career.create();
-  assert.deepStrictEqual(Career.wear(career, 'hurdles400'), { stamina: -10, jump: -5 });
+  assert.deepStrictEqual(Career.wear(career, 'hurdles400', 'easy'), { stamina: -10, jump: -5 });
   assert.strictEqual(career.stats.stamina, Career.START - 10);
   assert.strictEqual(career.stats.jump, Career.START - 5);
   assert.strictEqual(career.stats.speed, Career.START);
@@ -178,4 +178,9 @@ test('competing spends the two bars of the event', () => {
 test('a bar never goes below empty', () => {
   const career = Career.create({ version: 2, stats: { stamina: 4, jump: 0 } });
   assert.deepStrictEqual(Career.wear(career, 'hurdles400'), { stamina: -4 });
+});
+
+test('harder levels wear the athlete out less', () => {
+  const cost = (level) => Career.needs(Career.create(), 'hurdles400', level).reduce((sum, n) => sum + n.cost, 0);
+  assert.ok(cost('hard') < cost('normal') && cost('normal') < cost('easy'));
 });

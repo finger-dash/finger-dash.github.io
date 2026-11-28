@@ -16,7 +16,9 @@
   const MIN = 50;          // both bars of an event need this much to enter it
   const COOLDOWN = 60 * 60 * 1000; // ms of rest after a training session
   const VERSION = 2;       // of the saved data
-  const WEAR = [10, 5];    // what a competition takes from the main and second bar
+  // What a competition takes from the main and second bar. Harder levels cost less: the
+  // athlete risks more, as the medal is further away.
+  const WEAR = { easy: [10, 5], normal: [7, 4], hard: [4, 2] };
   const MAIN_SHARE = 0.7;  // weight of the main bar of an event; the other has the rest
 
   // Event: [short name, main bar, second bar].
@@ -110,11 +112,11 @@
   }
 
   // The bars an event leans on: [{id, name, value, share, cost}].
-  function needs(career, event) {
+  function needs(career, event, level = 'normal') {
     const [, main, second] = EVENTS[event];
     return [main, second].map((id, i) => ({
       id, name: STATS.find((s) => s.id === id).name, value: career.stats[id],
-      share: i ? 1 - MAIN_SHARE : MAIN_SHARE, cost: WEAR[i],
+      share: i ? 1 - MAIN_SHARE : MAIN_SHARE, cost: (WEAR[level] || WEAR.normal)[i],
     }));
   }
 
@@ -126,9 +128,9 @@
   const missing = (career, event) => needs(career, event).filter((n) => n.value < MIN);
 
   // Spends the bars of an event on competing in it. Returns {stat: change}.
-  function wear(career, event) {
+  function wear(career, event, level) {
     const changes = {};
-    for (const { id, value, cost } of needs(career, event)) {
+    for (const { id, value, cost } of needs(career, event, level)) {
       career.stats[id] = clamp(value - cost);
       if (career.stats[id] !== value) changes[id] = career.stats[id] - value;
     }

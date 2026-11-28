@@ -42,7 +42,7 @@
   define({
     id: 'sprint100', name: '100M DASH', kind: 'time', start: true, distance: 100,
     run: true, // the power bar sets the speed
-    rival: times(10.9, 1),
+    rival: times(11.1, 1),
     create: (env) => racer(env, { bonus: 0, dipped: false }),
     step(s, dt, input) {
       const target = input.charge * 12.3;
@@ -63,7 +63,7 @@
   const POOL = 50;
   define({
     id: 'swimming', name: '100M FREESTYLE', kind: 'time', start: true, distance: 100,
-    rival: times(27, 3),
+    rival: times(25.8, 2.4),
     create: (env) => racer(env, {
       air: 1, last: null, circles: { left: 0, right: 0 }, turned: false, breathing: 0, arms: 0,
     }),
@@ -109,7 +109,7 @@
   const BEAT = 1.15; // seconds between strokes
   define({
     id: 'rowing', name: 'ROWING', kind: 'time', start: true, distance: 200,
-    rival: times(40, 4),
+    rival: times(39.4, 3),
     beat: BEAT,
     create: (env) => racer(env, { clock: 0, hands: {}, pulled: -1, stroke: 9, streak: 0 }),
     // One pull of both oars, `both` when the two hands came together.
@@ -153,7 +153,7 @@
   const LANES = [-1, 0, 1];
   define({
     id: 'cycling', name: 'TRACK CYCLING', kind: 'time', start: true, distance: 500,
-    rival: times(38.8, 3),
+    rival: times(41.8, 3),
     create: (env) => racer(env, { power: 0, legs: 1, x: 0, draft: false }),
     step(s, dt, input) {
       // Pedalling: circles drawn per second; keys add through `pedal`.
@@ -183,7 +183,7 @@
   const HOLDS = 30;
   define({
     id: 'climbing', name: 'SPEED CLIMBING', kind: 'time', start: true, distance: 15,
-    rival: times(10.5, 2),
+    rival: times(9.6, 1.4),
     create(env) {
       // Left and right holds; every sixth one needs both hands.
       const holds = Array.from({ length: HOLDS }, (_, i) =>
@@ -241,7 +241,7 @@
   const COURSE = 150, GATES = 10, MISS = 2;
   define({
     id: 'canoe', name: 'CANOE SLALOM', kind: 'time', start: true, distance: COURSE,
-    rival: times(33, 5),
+    rival: times(29.5, 4),
     create(env) {
       const gates = Array.from({ length: GATES }, (_, i) => ({
         at: 16 + i * 13.5, x: (i % 2 ? 1 : -1) * (0.25 + env.rng() * 0.55), passed: null,

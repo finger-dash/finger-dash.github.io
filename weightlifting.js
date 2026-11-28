@@ -34,9 +34,9 @@
   const SWING = 0.43;
 
   const DIFFICULTY = {
-    easy: { sink: 0.8, zone: 1.15, rivals: 0.92 },
-    normal: { sink: 1, zone: 1, rivals: 1 },
-    hard: { sink: 1.12, zone: 0.85, rivals: 1.05 },
+    easy: { sink: 0.9, zone: 1, rivals: 0.97 },
+    normal: { sink: 0.98, zone: 0.92, rivals: 1 },
+    hard: { sink: 1.05, zone: 0.85, rivals: 1.03 },
   };
   const BASE_MARKS = [150, 158, 165, 172, 180];
   const MAKE_CHANCE = [0.88, 0.72, 0.52];

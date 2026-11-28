@@ -37,8 +37,8 @@
   const DIFFICULTY = {
     // block: chance of defending a punch while fresh and on guard. patience:
     // defended punches it takes before he answers. regen: his stamina per second.
-    easy: { guard: [1.1, 2.1], windup: 0.8, block: 0.5, patience: 4, damage: 9, regen: 9 },
-    normal: { guard: [0.8, 1.6], windup: 0.58, block: 0.7, patience: 3, damage: 13, regen: 12 },
+    easy: { guard: [0.85, 1.7], windup: 0.63, block: 0.65, patience: 3, damage: 12, regen: 11 },
+    normal: { guard: [0.75, 1.5], windup: 0.55, block: 0.72, patience: 3, damage: 14, regen: 12 },
     hard: { guard: [0.5, 1.2], windup: 0.43, block: 0.85, patience: 2, damage: 18, regen: 15 },
   };
   const RIVALS = ['VEGA', 'ROSSI', 'TANAKA', 'OKORO', 'SILVA'];

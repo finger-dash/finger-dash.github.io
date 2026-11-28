@@ -25,7 +25,7 @@
   const WAVE = 35;
   define({
     id: 'surfing', name: 'SURFING', kind: 'score', attempts: 1, WAVE,
-    rival: scores(210, 100),
+    rival: scores(250, 80),
     // x: distance ahead of the foam (0 caught, 1 far out). h: height on the wave 0..1.
     create: (env) => base(env, {
       x: 0.35, h: 0.45, vx: 0, points: 0, air: null, trick: 0, combo: 0, falls: 0, down: 0,
@@ -91,7 +91,7 @@
   const ROUTINE = 30, MOVES = ['up', 'down', 'left', 'right'];
   define({
     id: 'beam', name: 'BALANCE BEAM', kind: 'score', attempts: 1, ROUTINE,
-    rival: (rng, level) => round(clamp((12.6 + (rng() - 0.5) * 2.4) * level.rivals, 5, 15.5)),
+    rival: (rng, level) => round(clamp((12.8 + (rng() - 0.5) * 2.2) * level.rivals, 5, 15.5)),
     create: (env) => base(env, {
       lean: 0, vel: 0, push: 0, cue: null, next: 2.5, hit: 0, asked: 0, wobble: 0, falls: 0,
       down: 0, doing: null,
@@ -151,7 +151,7 @@
   // The field is 1 wide and 1 high; y grows downwards.
   define({
     id: 'trap', name: 'TRAP SHOOTING', kind: 'score', attempts: 1, CLAYS, aims: true,
-    rival: (rng, level) => clamp(Math.round((10.5 + (rng() - 0.5) * 5) * level.rivals), 0, CLAYS),
+    rival: (rng, level) => clamp(Math.round((11.2 + (rng() - 0.5) * 4) * level.rivals), 0, CLAYS),
     create: (env) => base(env, {
       aim: { x: 0.5, y: 0.45 }, clay: null, thrown: 0, hits: 0, wait: 1.2, shot: null, results: [],
     }),
@@ -251,7 +251,7 @@
         if (s.rng() < clamp((reach - 0.18) / s.strength ** 3, 0.04, 0.85)) this.point(s, true, 'POINT!');
         else {
           Object.assign(b, { dir: -1, depth: 1, from: b.to, to: (s.rng() - 0.5) * 1.6, spin: 0,
-            time: Math.max(0.6, (1.1 - s.rally * 0.04) / s.strength) });
+            time: Math.max(0.55, (1.02 - s.rally * 0.045) / s.strength) });
         }
       }
     },
@@ -443,7 +443,7 @@
       }
       if (f.move === 'guard' && f.t >= f.wait) {
         Object.assign(f, { move: 'attack', t: 0, line: s.rng() < 0.5 ? 'high' : 'low' });
-      } else if (f.move === 'attack' && f.t >= 0.75 * s.ease / s.strength) {
+      } else if (f.move === 'attack' && f.t >= 0.68 * s.ease / s.strength) {
         if (me.line === f.line && me.move !== 'lunge') {
           Object.assign(f, { move: 'recover', t: 0 });
           s.riposte = 0.8 * s.ease;

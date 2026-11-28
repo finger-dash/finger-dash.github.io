@@ -20,9 +20,9 @@
 
   // Strength of the rivals and how forgiving the controls are.
   const DIFFICULTY = {
-    easy: { name: 'easy', rivals: 0.9, ease: 1.35 },
-    normal: { name: 'normal', rivals: 1, ease: 1 },
-    hard: { name: 'hard', rivals: 1.07, ease: 0.75 },
+    easy: { name: 'easy', rivals: 0.98, ease: 1.05 },
+    normal: { name: 'normal', rivals: 1.05, ease: 0.87 },
+    hard: { name: 'hard', rivals: 1.1, ease: 0.72 },
   };
 
   const EVEN = { rivals: 1, ease: 1 }; // see career.js

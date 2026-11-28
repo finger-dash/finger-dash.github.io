@@ -47,7 +47,7 @@ test('facing the field counts, whatever the number of turns', () => {
 test('harder levels have a narrower sector', () => {
   const foul = (difficulty) => {
     const c = ShotPut.createContest({ rng: seeded(), difficulty });
-    ShotPut.throwShot(c, 0.8, 40);
+    ShotPut.throwShot(c, 0.8, 38);
     return c.shot.foul;
   };
   assert.deepStrictEqual(['easy', 'normal', 'hard'].map(foul), [false, false, true]);

@@ -11,11 +11,11 @@
   const ATTEMPTS = 3;
   const TIME_LIMIT = 8;     // seconds to throw once the spin starts
   // Degrees to each side of straight ahead where a shot counts.
-  const SECTOR = { easy: 60, normal: 45, hard: 35 };
+  const SECTOR = { easy: 50, normal: 42, hard: 33 };
   const MIN_DISTANCE = 8;
   const RANGE = 14;         // m added by a full power bar
   const FLIGHT_TIME = 1.7;  // seconds on screen
-  const DIFFICULTY = { easy: 0.9, normal: 1, hard: 1.06 };
+  const DIFFICULTY = { easy: 0.96, normal: 1, hard: 1.04 };
   const BASE_MARKS = [15.2, 16.4, 17.5, 18.5, 19.6];
 
   function createContest({

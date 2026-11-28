@@ -367,7 +367,8 @@
     function speedLines(now) {
       const count = Math.round(Math.max(0, rush - 0.35) * 40);
       const frame = Math.floor(now / 45);
-      const reach = Math.hypot(W, H) / 367; // 1 on the 320x180 layout
+      // 1 on the 320x180 layout; narrow screens go by their width, or they miss them.
+      const reach = screenLayout.portrait ? W / 320 : Math.hypot(W, H) / 367;
       const tall = 0.7 * (H / W) / (180 / 320);
       for (let i = 0; i < count; i++) {
         const a = noise(i, frame) * Math.PI * 2;
