@@ -4,6 +4,7 @@
 
   const BOARD_DELAY = 1.8;
   const GUARD = 0.6;
+  const TURN_BUZZ = 45; // ms the phone vibrates after each full turn
   const ARROWS = ['ArrowUp', 'ArrowRight', 'ArrowDown', 'ArrowLeft'];
 
   function create({ view, mobile, shell }) {
@@ -15,13 +16,18 @@
     let record = null;
     try { record = Number(localStorage.getItem('shotput.best')) || null; } catch (_) {}
 
-    // The shot leaves towards wherever the athlete is seen facing at the release.
-    const release = (p, angle) => ShotPut.throwShot(contest, p, angle, (turn * 180) / Math.PI);
-    const spin = new Spin.SpinDetector(({ power: p, angle }) => release(p, angle));
+    let turns = 0; // full circles already felt on the phone
+
+    // The athlete stays facing where he was at the release, and the shot leaves that way.
+    function release(p, facing) {
+      turn = facing;
+      ShotPut.throwShot(contest, p, (facing * 180) / Math.PI);
+    }
+    const spin = new Spin.SpinDetector(({ power: p, facing }) => release(p, facing));
 
     function newAttempt() {
       spin.reset();
-      finger = null; trail = []; nextArrow = 0; turn = 0; power = 0;
+      finger = null; trail = []; nextArrow = 0; turn = 0; power = 0; turns = 0;
     }
 
     function start(profile) {
@@ -32,6 +38,12 @@
     }
 
     const resultsShown = () => contest.phase === 'landed' && contest.time > BOARD_DELAY;
+    // 'win' or 'loss' while the final table is up, otherwise null.
+    function outcome() {
+      if (!resultsShown() || !ShotPut.isOver(contest)) return null;
+      const first = ShotPut.standings(contest)[0];
+      return first.isPlayer && ShotPut.best(first) ? 'win' : 'loss';
+    }
     const resultsReady = () => resultsShown() && contest.time > BOARD_DELAY + GUARD;
 
     // ---------- Input ----------
@@ -43,15 +55,18 @@
       trail.push({ x: spin.x, y: spin.y, t });
     }
 
+    // The last finger to touch draws.
     function down(p) {
-      if (!p.mouse && finger === null) finger = p.id;
+      if (!p.mouse) finger = p.id;
     }
     function move(p) {
       // One finger draws the circles; the trackpad pointer needs no button.
       if (p.mouse ? shell.locked() : p.id === finger) feed(p.dx, p.dy, p.t);
     }
     function up(p) {
-      if (p.id === finger) finger = null;
+      if (p.id !== finger) return;
+      finger = null;
+      if (contest.phase === 'spin') spin.lift(p.t);
     }
     // Lifts are not reported while paused.
     function pause() {
@@ -85,7 +100,7 @@
         spin.turned += Math.PI / 2;
       } else if (e.code === 'Space') {
         e.preventDefault();
-        if (spin.turned > 0) release(spin.power, 0);
+        if (spin.turned > 0) release(spin.power, spin.angle);
       }
     }
 
@@ -108,6 +123,9 @@
         power = spin.power;
         // The thrower keeps turning in the direction of the circles.
         turn += (spin.angle - turn) * Math.min(1, dt * 30);
+        const full = Math.floor(spin.turned / (Math.PI * 2));
+        if (full > turns) mobile.buzz(TURN_BUZZ);
+        turns = full;
       }
       const before = contest.phase;
       ShotPut.step(contest, dt);
@@ -126,14 +144,14 @@
     function field() {
       const { poly, project } = scene;
       scene.backdrop();
-      const edge = Math.tan((ShotPut.SECTOR * Math.PI) / 180);
+      const edge = Math.tan((ShotPut.sector(contest) * Math.PI) / 180);
       poly([[0, 0, 1.2], [-26 * edge, 0, 27], [26 * edge, 0, 27]], '#4fae52');
       for (const side of [-edge, edge]) { // sector lines
         poly([[-0.05, 0, 1.2], [0.05, 0, 1.2], [side * 26 + 0.12, 0, 27], [side * 26 - 0.12, 0, 27]], '#f4f4f4');
       }
       const arc = (radius, thick, color) => {
-        const from = -ShotPut.SECTOR, step = ShotPut.SECTOR / 5;
-        for (let a = from; a < ShotPut.SECTOR; a += step) {
+        const half = ShotPut.sector(contest), step = half / 5;
+        for (let a = -half; a < half - 0.01; a += step) {
           const at = (deg, r) => [Math.sin(deg * Math.PI / 180) * r, 0, Math.cos(deg * Math.PI / 180) * r];
           poly([at(a, radius), at(a + step, radius), at(a + step, radius + thick), at(a, radius + thick)], color);
         }
@@ -145,7 +163,8 @@
       for (const side of [-1, 1]) {
         let above = Infinity; // top of the previous (nearer) sign
         for (let m = 10; m <= 22; m += 2) {
-          const p = project(side * (m * edge + 0.6), 0.6, m * 0.87);
+          // Signs stand 30 degrees out at every level, where phones can still see them.
+          const p = project(side * (m / Math.sqrt(3) + 0.6), 0.6, m * 0.87);
           if (!p || p.s < 3 || p.y > above - 10) continue; // far signs would pile up
           above = p.y;
           const w = String(m).length * 4 + 1;
@@ -221,7 +240,7 @@
       cam.z = -4.4;
       cam.x = 0;
       cam.h = 2.3 + arc * 2;
-      if (flying && contest.shot.wrongWay) {
+      if (flying && contest.shot.foul) {
         const { side, forward } = contest.shot;
         cam.z -= (Math.max(0, -forward) + Math.abs(side) * 0.8) * k;
         cam.x = side * k * 0.3;
@@ -301,7 +320,7 @@
       ui.footer(true);
     }
 
-    return { lock: true, start, update, draw, key, click, down, move, up, wheel, pause, resultsShown };
+    return { lock: true, start, update, draw, key, click, down, move, up, wheel, pause, resultsShown, outcome };
   }
 
   root.ShotPutUi = { create };

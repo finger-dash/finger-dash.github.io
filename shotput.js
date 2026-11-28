@@ -10,10 +10,8 @@
 
   const ATTEMPTS = 3;
   const TIME_LIMIT = 8;     // seconds to throw once the spin starts
-  const SECTOR = 30;        // degrees to each side of straight ahead
-  // Degrees the athlete may be turned away from the field when releasing.
-  const WINDOW = { easy: 75, normal: 60, hard: 45 };
-  const LEAN = 15;          // how far the shot leans when released at the edge of the window
+  // Degrees to each side of straight ahead where a shot counts.
+  const SECTOR = { easy: 60, normal: 45, hard: 35 };
   const MIN_DISTANCE = 8;
   const RANGE = 14;         // m added by a full power bar
   const FLIGHT_TIME = 1.7;  // seconds on screen
@@ -61,25 +59,20 @@
     }
   }
 
-  const turnWindow = (c) => WINDOW[c.difficulty] || WINDOW.normal;
+  const sector = (c) => SECTOR[c.difficulty] || SECTOR.normal;
 
-  // power: 0..1. angle: degrees the swipe leans away from straight up, positive to the
-  // right. facing: degrees the athlete is turned away from the field at the release.
-  function throwShot(c, power, angle, facing = 0) {
+  // power: 0..1. facing: degrees the athlete is turned away from the field at the
+  // release, positive to the right. The shot leaves exactly that way.
+  function throwShot(c, power, facing = 0) {
     if (c.phase !== 'spin') return false;
-    const turned = facing - 360 * Math.round(facing / 360); // -180..180
-    const wrongWay = Math.abs(turned) > turnWindow(c);
-    const swipe = Math.max(-60, Math.min(60, angle));
-    // Facing away, the shot leaves wherever the athlete is looking.
-    const off = wrongWay ? turned
-      : Math.max(-60, Math.min(60, (turned / turnWindow(c)) * LEAN + swipe));
+    const off = facing - 360 * Math.round(facing / 360); // -180..180
     const reach = MIN_DISTANCE + RANGE * Math.max(0, Math.min(1, power)) ** 0.85;
     const crooked = Math.min(60, Math.abs(off));
     const distance = reach * Math.cos((crooked * Math.PI) / 450); // slightly less when crooked
     const rad = (off * Math.PI) / 180;
     c.shot = {
       distance, side: Math.sin(rad) * distance, forward: Math.cos(rad) * distance,
-      foul: Math.abs(off) > SECTOR, wrongWay,
+      foul: Math.abs(off) > sector(c), wrongWay: Math.abs(off) > 90,
     };
     setPhase(c, 'flight');
     return true;
@@ -106,8 +99,8 @@
   const standings = (c) => Contest.byBest(c.athletes);
 
   const api = {
-    ATTEMPTS, TIME_LIMIT, SECTOR, WINDOW, FLIGHT_TIME, DIFFICULTY,
-    createContest, begin, throwShot, step, nextAttempt, isOver, best, standings,
+    ATTEMPTS, TIME_LIMIT, SECTOR, FLIGHT_TIME, DIFFICULTY,
+    createContest, sector, begin, throwShot, step, nextAttempt, isOver, best, standings,
   };
   if (typeof module !== 'undefined') module.exports = api;
   else root.ShotPut = api;

@@ -13,6 +13,7 @@ no build step.
 - Results show the winner and standings; late rivals fill in as they finish.
 - If every rival has finished, you have 25 s left before being marked DNF.
 - Difficulty is chosen in the menu. Hard also hides the `JUMP!` hint.
+- Android phones vibrate when you knock down a hurdle.
 
 ## Long jump
 
@@ -21,22 +22,26 @@ no build step.
 - Stepping over the board is a foul. Distance lost before the board is not recovered.
 - A well-timed second swipe in the air stretches the legs and adds up to 0.5 m. Swipes in the
   first moments of the flight are ignored, so the finger may move after setting the angle.
+- On a phone the angle is set with a new tap after the take-off flick; the meter waits 0.3 s
+  for it. Android phones give a long vibration on landing.
 - Level changes rival strength and the angle meter speed. Hard hides the cues.
 
 | Step | Phone | Trackpad | Keyboard |
 |---|---|---|---|
 | Run | Swipe down, alternating fingers | Swipe down repeatedly | Alternate Left / Right |
-| Take off | Flick up and hold | Flick up | Hold Space |
-| Set the angle | Lift the finger | Click | Release Space |
+| Take off | Flick up | Flick up | Hold Space |
+| Set the angle | Tap | Click | Release Space |
 | Stretch the legs | Swipe down in the air | Swipe down in the air | Down arrow |
 
 ## Shot put
 
 - Three attempts, 8 seconds each to spin and throw. The best mark wins.
-- Circles build power; an upward swipe throws. The shot leaves towards wherever the athlete is
-  facing at that moment: swipe while he faces the field. Releasing while turned further than
-  75 / 60 / 45 degrees (easy / normal / hard) sends it out of the field (WRONG WAY).
-- A sideways swipe may leave the 30 degree sector (foul).
+- Circles build power; an upward swipe throws. The shot leaves exactly where the athlete is
+  facing at that moment, whatever the direction of the swipe: swipe while he faces the field.
+- It counts inside a sector of 60 / 45 / 35 degrees to each side (easy / normal / hard) and is a
+  foul outside it, or WRONG WAY beyond 90 degrees. Crooked throws lose a little distance.
+- A swipe too short to throw while the finger moves throws when the finger is lifted.
+- Android phones vibrate after each full turn.
 - The yellow arc marks the rival distance to beat.
 
 | Step | Phone | Trackpad | Keyboard |
@@ -52,6 +57,7 @@ no build step.
   lands where the sight points when you let go. At least half of the level's wind always blows
   (up to 3 / 4.5 / 6 m/s on easy / normal / hard, half as much again in gusts). It also makes
   the sight shudder and rocks the whole view downwind.
+- On touch screens the wind drags and shakes the sight at 40% of that strength.
 - The sign at the top shows which way the wind blows and how fast (green under 2 m/s, yellow
   under 4, red from 4), backed up by a flag and streaks on the field.
 - Holding the bow drawn for long makes the aim shake.
@@ -86,6 +92,8 @@ aim, and pushing forward again relaxes the string to cancel the shot.
 | Uppercut | Swipe up on that half | Q / E | Drag up |
 | Dodge | Tilt the phone, or swipe sideways | Left / Right | Drag sideways |
 
+Android phones vibrate every time you are hit.
+
 Tilting needs a secure context (HTTPS or `localhost`); iPhone also asks for permission.
 Over plain `http://<computer-ip>:8000` use the sideways swipe.
 
@@ -107,6 +115,10 @@ Over plain `http://<computer-ip>:8000` use the sideways swipe.
 | Start the lift | Enter or Space | `LIFT` button |
 | Left / right side | F / J | Tap that half of the screen |
 
+On a phone two arcade buttons, red on the left and blue on the right, press in with each tap,
+flash on the side that is falling behind and stay down in green once a hold is timed right.
+Tapping anywhere on that half of the screen works too.
+
 Android phones vibrate with the effort. iPhone Safari and computers do not vibrate.
 
 ## Screens
@@ -123,6 +135,32 @@ in `EVENTS` (`home.js`), draw its card in `art.js` and give it movements for the
 
 An event screen returns `{ lock, start, update, draw, key, click }` and optionally
 `keyUp`, `down`, `move`, `up` (raw pointers), `flick` and `wheel` (two-finger movement).
+
+## Sound
+
+All sound is 8-bit and starts with the first tap, click or key press, because browsers do not
+allow it earlier.
+
+- The menu music starts and, 1 s later, an announcer shouts "Finger Podium!" while the music
+  goes down to make room. The stadium cheers 1.5 s after the name, over the music turned
+  almost off.
+- The menu music loops in the title, event and runner screens.
+  It stops when a competition starts and plays again back in the menus.
+- When the final table of a competition comes up, the crowd cheers if you won and boos if you
+  did not (a draw counts as not winning).
+- Sound stops while the page is hidden. There is no mute button yet; use the volume of the
+  device. On iPhone the silent switch may mute it.
+
+The music (an original tune) is generated in the browser by `synth.js`. The other sounds are
+stored in `sounds.js`.
+
+### Credits
+
+| Sound | Source | License |
+|---|---|---|
+| Cheer | [19 Football Crowd - Reaction To Goal](https://freesound.org/s/528799/) by D.jones | CC0; trimmed to seconds 4-8, mono, filtered, limited, faded, 8-bit |
+| Boo | [crowd booing](https://freesound.org/s/264378/) by HowardV | CC0; trimmed to seconds 0-4, same processing |
+| Announcer | "awb" voice of [CMU Flite](https://github.com/festvox/flite) | Synthesized, then stretched, re-pitched and given echoes |
 
 ## Runner setup
 
@@ -243,9 +281,12 @@ Planned features are listed in [ROADMAP.md](ROADMAP.md).
 | `blocks.js` | Boxing gloves drawn flat on the screen, for the ones close to the camera |
 | `boxing.js` / `boxing-ui.js` | Boxing rules and opponent (testable), screen and tilt input |
 | `weightlifting.js` / `weightlifting-ui.js` | Weightlifting rules (testable), screen and vibration |
-| `lift-art.js` | Weightlifting hall, platform and keycaps |
+| `lift-art.js` | Weightlifting hall, platform, keycaps and arcade buttons |
 | `scene3d.js` | Small 3D camera for the infield events |
 | `fieldui.js` | HUD and results shared by the events |
 | `render.js` | Chase camera, ground, stands, hurdles and sprites |
+| `synth.js` | Menu music and decoding of the recorded sounds (testable) |
+| `sounds.js` | Announcer, cheer and boo recordings, with their credits |
+| `audio.js` | Sound playback: unlocking, menu music and crowd reactions (testable) |
 | `game.js` | Input wiring, state machine, HUD and main loop |
 | `*.test.js` | Unit tests |

@@ -44,6 +44,13 @@
     }
     document.addEventListener('contextmenu', (e) => { if (touch) e.preventDefault(); });
 
+    // Android phones; iPhone Safari has no vibration for web pages. `pattern` is in ms,
+    // as in navigator.vibrate; 0 stops it.
+    function buzz(pattern) {
+      if (!touch || !navigator.vibrate) return;
+      try { navigator.vibrate(pattern); } catch (_) {}
+    }
+
     // Must be called from a tap handler, otherwise phones keep the keyboard closed.
     function editName(value, callback) {
       onName = callback;
@@ -105,6 +112,7 @@
     }
 
     return {
+      buzz,
       editName,
       closeName,
       enterFullscreen,

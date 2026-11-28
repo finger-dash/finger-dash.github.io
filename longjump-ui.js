@@ -5,12 +5,14 @@
   const BOARD_DELAY = 1.8; // seconds the mark stays on screen before the results
   const GUARD = 0.6;       // seconds before the results buttons react
   const LANE_SPEED = 15;   // m/s with a full power bar
+  const TAP_GUARD = 0.15;  // s after the take-off in which a touch does not set the angle
+  const LANDING_BUZZ = 700; // ms the phone vibrates on landing
 
   // shell: shared pieces of the game (HUD helpers and navigation).
   function create({ view, detector, mobile, shell }) {
     const { ctx, rect, text } = view;
     let contest = null;
-    let held = null;    // what is holding the angle meter: a pointer id or 'key'
+    let held = false;   // Space is down since the take-off: releasing it sets the angle
     let seenStrokes = 0;
     let record = null;
     try { record = Number(localStorage.getItem('longjump.best')) || null; } catch (_) {}
@@ -18,42 +20,43 @@
     function newAttempt() {
       detector.reset();
       seenStrokes = 0;
-      held = null;
+      held = false;
     }
 
     function start(profile) {
       contest = LongJump.createContest({
         difficulty: profile.difficulty, country: profile.country, playerName: profile.name.trim(),
+        tapAngle: mobile.isTouch(),
       });
       newAttempt();
     }
 
     const resultsShown = () => contest.phase === 'landed' && contest.time > BOARD_DELAY;
+    // 'win' or 'loss' while the final table is up, otherwise null.
+    function outcome() {
+      if (!resultsShown() || !LongJump.isOver(contest)) return null;
+      const first = LongJump.standings(contest)[0];
+      return first.isPlayer && LongJump.best(first) ? 'win' : 'loss';
+    }
     const resultsReady = () => resultsShown() && contest.time > BOARD_DELAY + GUARD;
 
     // ---------- Input ----------
 
-    // Upward flick or Space. source tells which finger has to be lifted.
+    // Upward flick or Space. After a flick, a tap or a click sets the angle.
     function flick(source) {
-      if (!LongJump.takeOff(contest)) return;
-      if (source === 'key') held = 'key';
-      else if (source.startsWith('touch:')) held = Number(source.slice(6));
-      else held = null; // trackpads report no lift: a click sets the angle
+      if (LongJump.takeOff(contest)) held = source === 'key';
     }
 
     function lockAngle() {
-      held = null;
+      held = false;
       LongJump.release(contest);
     }
 
-    // A finger left the screen.
-    function up(p) {
-      if (contest.phase === 'angle' && held === p.id) lockAngle();
-    }
-
-    // Mouse button or trackpad click.
+    // A new touch, the mouse button or a trackpad click.
     function down(p) {
-      if (p.mouse && contest.phase === 'angle') lockAngle();
+      if (contest.phase !== 'angle') return;
+      if (!p.mouse && (contest.time < TAP_GUARD || shell.over(shell.quitBox(), p.x, p.y))) return;
+      lockAngle();
     }
 
     function advance() {
@@ -83,7 +86,7 @@
     }
 
     function keyUp(e) {
-      if (e.code === 'Space' && held === 'key' && contest.phase === 'angle') lockAngle();
+      if (e.code === 'Space' && held && contest.phase === 'angle') lockAngle();
     }
 
     function click(x, y, pointerType) {
@@ -108,6 +111,7 @@
       const before = contest.phase;
       LongJump.step(contest, dt, detector.charge * LANE_SPEED);
 
+      if (before === 'flight' && contest.phase === 'landed') mobile.buzz(LANDING_BUZZ);
       if (before !== 'landed' && contest.phase === 'landed') {
         const { mark } = contest.result;
         if (mark !== null && (!record || mark > record)) {
@@ -169,7 +173,7 @@
       const y = horizon - 28;
       if (j.speed < 0.5 && j.s < 2) {
         const lines = mobile.isTouch()
-          ? ['SWIPE DOWN TO RUN', 'AT THE BOARD: FLICK UP AND HOLD', 'LIFT TO SET THE ANGLE']
+          ? ['SWIPE DOWN TO RUN', 'AT THE BOARD: FLICK UP', 'THEN TAP TO SET THE ANGLE']
           : ['SWIPE DOWN TO RUN', 'AT THE BOARD: FLICK UP', 'CLICK TO SET THE ANGLE'];
         shade(W / 2 - 66, y - 12, 132, 31);
         lines.forEach((line, i) => text(line, W / 2, y - 8 + i * 9, '#fff', 1, 'center'));
@@ -268,7 +272,7 @@
       if (contest.phase === 'run') runHints();
       else if (contest.phase === 'angle') {
         angleMeter();
-        const hint = held === null ? 'CLICK TO SET ANGLE' : held === 'key' ? 'RELEASE SPACE!' : 'LIFT YOUR FINGER!';
+        const hint = held ? 'RELEASE SPACE!' : mobile.isTouch() ? 'TAP TO SET ANGLE' : 'CLICK TO SET ANGLE';
         text(hint, W / 2, horizon - 28, '#f9d56e', 2, 'center');
       } else if (contest.phase === 'flight') flightHints();
       else landedMark();
@@ -287,7 +291,7 @@
       draw();
     }
 
-    return { lock: true, start, update, draw: render, flick, up, down, key, keyUp, click, resultsShown };
+    return { lock: true, start, update, draw: render, flick, down, key, keyUp, click, resultsShown, outcome };
   }
 
   root.LongJumpUi = { create };

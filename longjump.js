@@ -16,6 +16,7 @@
   const BEST_ANGLE = 22;        // degrees
   const GOOD_ANGLE = 4;         // half width of the sweet spot
   const MAX_ANGLE = 55;
+  const TAP_DELAY = 0.3;        // seconds the meter waits for the finger that has to tap
   const FLIGHT_TIME = 1.4;      // seconds on screen
   const STRETCH_AT = 0.75;      // ideal moment of the flight to stretch the legs
   const STRETCH_WINDOW = 0.25;
@@ -34,7 +35,7 @@
   const BASE_MARKS = [5.9, 6.4, 6.9, 7.4, 7.9];
 
   function createContest({
-    difficulty = 'normal', rng = Math.random, playerName = 'YOU', country = 'ARG',
+    difficulty = 'normal', rng = Math.random, playerName = 'YOU', country = 'ARG', tapAngle = false,
   } = {}) {
     const level = DIFFICULTY[difficulty] || DIFFICULTY.normal;
     const athletes = Contest.athletes({
@@ -42,7 +43,8 @@
       plan: (base) => Array.from({ length: ATTEMPTS }, () =>
         (rng() < 0.12 ? null : round((base + (rng() - 0.5) * 0.7) * level.rivals))),
     });
-    const contest = { difficulty, level, athletes, player: athletes[0], attempt: 0 };
+    const angleDelay = tapAngle ? TAP_DELAY : 0;
+    const contest = { difficulty, level, angleDelay, athletes, player: athletes[0], attempt: 0 };
     startAttempt(contest);
     return contest;
   }
@@ -121,7 +123,8 @@
       if (j.s > BOARD + RUN_THROUGH) finishAttempt(c, null, 'FOUL');
     } else if (c.phase === 'angle') {
       // The world holds still while the player picks the angle.
-      c.angle = Math.min(MAX_ANGLE, c.angle + c.level.sweep * dt);
+      const moving = Math.max(0, Math.min(dt, c.time - c.angleDelay));
+      c.angle = Math.min(MAX_ANGLE, c.angle + c.level.sweep * moving);
       if (c.angle >= MAX_ANGLE) release(c);
     } else if (c.phase === 'flight') {
       const p = Math.min(1, c.time / FLIGHT_TIME);
@@ -161,7 +164,7 @@
   const standings = (c) => Contest.byBest(c.athletes);
 
   const api = {
-    BOARD, ATTEMPTS, TAKEOFF_ZONE, BEST_ANGLE, GOOD_ANGLE, MAX_ANGLE, FLIGHT_TIME, STRETCH_AT, STRETCH_FROM, DIFFICULTY,
+    BOARD, ATTEMPTS, TAKEOFF_ZONE, BEST_ANGLE, GOOD_ANGLE, MAX_ANGLE, TAP_DELAY, FLIGHT_TIME, STRETCH_AT, STRETCH_FROM, DIFFICULTY,
     createContest, step, takeOff, release, stretch, nextAttempt, isOver, best, standings,
   };
   if (typeof module !== 'undefined') module.exports = api;

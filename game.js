@@ -33,10 +33,12 @@
   } catch (_) {}
 
   const mobile = Mobile.createMobile({ canvas, detector, Font, Layout });
+  const sound = Sound.createAudio();
+  let heard = null; // outcome the crowd has already reacted to
 
   // Every event but the hurdles lives in its own screen with a common interface:
   // lock, start, update, draw, key, click and optionally keyUp, flick, down, move, up, wheel,
-  // pause (forget held inputs).
+  // pause (forget held inputs). outcome says whether the final table shows a win or a loss.
   const shell = {
     power: drawPower, panel, button: drawButton, resultsBoxes, quitBox, over,
     save: (key, value) => save(key, value),
@@ -60,6 +62,7 @@
 
   // ---------- Pause (computers) ----------
 
+  const HURDLE_BUZZ = 180; // ms the phone vibrates when a hurdle is knocked down
   const ESC_GUARD = 300; // ms; one Escape may arrive both as a key and as a lost pointer
   let paused = false, pausedAt = 0;
 
@@ -388,7 +391,9 @@
     if (!racing()) return;
 
     // The simulation keeps going behind the results so late rivals can finish.
+    const knocked = race.player.knocked.size;
     Race.step(race, dt, detector.charge * Race.MAX_SPEED);
+    if (race.player.knocked.size > knocked) mobile.buzz(HURDLE_BUZZ);
 
     if (state === 'running' && race.over) {
       state = 'finished';
@@ -519,6 +524,18 @@
     if (state === 'finished') drawResults();
   }
 
+  // Music in the menus. In a competition, the crowd cheers or boos when the final table
+  // comes up, and hushes when it goes away.
+  function soundtrack() {
+    sound.menu(state === 'title' || state === 'events' || state === 'menu');
+    let outcome = null;
+    if (state === 'finished') outcome = race.winner && race.winner.isPlayer ? 'win' : 'loss';
+    else if (state === 'event') outcome = active.outcome();
+    if (outcome === heard) return;
+    heard = outcome;
+    sound.react(outcome);
+  }
+
   let last = performance.now();
   function frame() {
     const now = performance.now();
@@ -526,6 +543,7 @@
     last = now;
     mobile.syncLayout(view.resize);
     update(dt, now);
+    soundtrack();
     const shown = paused ? pausedAt : now; // animations stop too
     if (state === 'title') {
       home.title.draw(profile.country, now, mobile.isTouch());

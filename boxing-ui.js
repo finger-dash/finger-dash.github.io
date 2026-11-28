@@ -8,6 +8,7 @@
   const TAP_SLOP = 16;       // CSS px a tap may wander
   const UPPERCUT_SWIPE = 36; // CSS px upwards
   const DODGE_SWIPE = 50;    // CSS px sideways
+  const HIT_BUZZ = 180;      // ms the phone vibrates when we are hit
   const TILT_ON = 14;        // degrees from the neutral position
   const TILT_OFF = 7;
 
@@ -66,6 +67,9 @@
     }
 
     const resultsShown = () => bout.phase === 'over' && bout.time > BOARD_DELAY;
+    // 'win' or 'loss' (a draw too) while the final table is up, otherwise null.
+    const outcome = () => (!resultsShown() ? null
+      : bout.result.winner === 'player' ? 'win' : 'loss');
     const resultsReady = () => resultsShown() && bout.time > BOARD_DELAY + GUARD;
 
     // ---------- Input ----------
@@ -100,6 +104,7 @@
 
     function pause() {
       presses.clear();
+      mobile.buzz(0);
     }
 
     const KEYS = {
@@ -140,7 +145,10 @@
         } else if (e.type === 'block') popups.push({ text: 'BLOCKED', side: e.side, color: '#9ab', t: 0 });
         else if (e.type === 'miss') popups.push({ text: 'MISS', side: e.side, color: '#d8d8e8', t: 0 });
         else if (e.type === 'dodged') popups.push({ text: 'DODGED!', side: e.side, color: '#5be37d', t: 0 });
-        else if (e.type === 'hurt') shake = 0.35;
+        else if (e.type === 'hurt') {
+          shake = 0.35;
+          mobile.buzz(HIT_BUZZ);
+        }
       }
       popups.forEach((p) => { p.t += dt; });
       popups = popups.filter((p) => p.t < 0.7);
@@ -478,7 +486,7 @@
       ui.footer(false);
     }
 
-    return { lock: false, start, update, draw, key, click, down, move, up, pause, resultsShown };
+    return { lock: false, start, update, draw, key, click, down, move, up, pause, resultsShown, outcome };
   }
 
   root.BoxingUi = { create };

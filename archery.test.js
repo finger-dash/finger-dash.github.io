@@ -134,3 +134,13 @@ test('pulling back like a cue can relax the string and cancel the shot', () => {
   assert.ok(!Archery.loose(c));
   assert.strictEqual(c.phase, 'aim');
 });
+
+test('on touch screens the wind pushes the sight much less', () => {
+  const drift = (touch) => {
+    const c = contest({ touch });
+    const from = c.aim.x;
+    for (let i = 0; i < 60; i++) Archery.step(c, 1 / 60);
+    return c.aim.x - from;
+  };
+  assert.ok(Math.abs(drift(true) / drift(false) - Archery.TOUCH_WIND) < 1e-6);
+});

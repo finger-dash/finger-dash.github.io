@@ -121,3 +121,13 @@ test('rivals are stronger on harder levels and never wear the player colors', ()
   assert.ok(total('easy') < total('normal') && total('normal') < total('hard'));
   assert.ok(contest({ country: 'BRA' }).athletes.slice(1).every((a) => a.country !== 'BRA'));
 });
+
+test('with a tap to set the angle, the meter waits for the finger', () => {
+  const c = contest({ tapAngle: true });
+  runTo(c, LongJump.BOARD - 0.3);
+  LongJump.takeOff(c);
+  while (c.time < LongJump.TAP_DELAY - DT) LongJump.step(c, DT, 0);
+  assert.strictEqual(c.angle, 0);
+  while (c.time < LongJump.TAP_DELAY + 0.5) LongJump.step(c, DT, 0);
+  assert.ok(Math.abs(c.angle - c.level.sweep * 0.5) < 1, String(c.angle));
+});

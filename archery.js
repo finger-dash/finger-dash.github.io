@@ -16,6 +16,7 @@
   const DROP = 1.3;         // m lost at zero draw; nothing at full draw
   const PUSH = 0.065;       // m per second the sight drifts for each m/s of wind
   const BUFFET = 0.004;     // m of shudder on the sight for each m/s of wind
+  const TOUCH_WIND = 0.4;   // share of the wind's effect on touch screens, where aiming is harder
   const CALMEST = 0.5;      // share of the level's wind that always blows
   const STEADY = 2.5;       // seconds before the arm starts to tire
   const REACH = 1.2;        // m the aim can move from the center
@@ -37,7 +38,7 @@
   }
 
   function createContest({
-    difficulty = 'normal', rng = Math.random, playerName = 'YOU', country = 'ARG',
+    difficulty = 'normal', rng = Math.random, playerName = 'YOU', country = 'ARG', touch = false,
   } = {}) {
     const level = DIFFICULTY[difficulty] || DIFFICULTY.normal;
     const athletes = Contest.athletes({
@@ -45,7 +46,10 @@
       plan: (base) => Array.from({ length: ARROWS }, () =>
         clamp(Math.round(base + level.rivals + (rng() - 0.5) * 3.4), 0, 10)),
     });
-    const contest = { difficulty, level, rng, athletes, player: athletes[0], attempt: 0, hits: [] };
+    const windEffect = touch ? TOUCH_WIND : 1; // how hard the wind pushes the sight
+    const contest = {
+      difficulty, level, rng, windEffect, athletes, player: athletes[0], attempt: 0, hits: [],
+    };
     startArrow(contest);
     return contest;
   }
@@ -97,7 +101,7 @@
   // Where the sight points right now.
   function sight(c) {
     const s = sway(c);
-    const shudder = c.phase === 'aim' ? c.wind.speed * BUFFET : 0;
+    const shudder = c.phase === 'aim' ? c.wind.speed * BUFFET * c.windEffect : 0;
     return {
       x: c.aim.x + s.x + shudder * Math.sin(c.time * 17),
       y: c.aim.y + s.y + shudder * 0.7 * Math.sin(c.time * 23 + 1),
@@ -127,7 +131,7 @@
     c.time += dt;
     if (c.phase === 'aim') {
       c.wind.speed = gust(c.wind, c.time);
-      moveAim(c, c.wind.speed * PUSH * dt, 0); // the wind drags the sight along
+      moveAim(c, c.wind.speed * PUSH * c.windEffect * dt, 0); // the wind drags the sight along
     }
     if (c.phase === 'aim' && c.draw > 0) c.held += dt;
     if (c.phase === 'flight' && c.time >= FLIGHT_TIME) {
@@ -152,7 +156,7 @@
   const standings = (c) => Contest.byTotal(c.athletes);
 
   const api = {
-    ARROWS, DISTANCE, RADIUS, RING, MIN_DRAW, FLIGHT_TIME, PUSH, BUFFET, REACH, DIFFICULTY,
+    ARROWS, DISTANCE, RADIUS, RING, MIN_DRAW, FLIGHT_TIME, PUSH, BUFFET, TOUCH_WIND, REACH, DIFFICULTY,
     score, createContest, pull, drawTo, moveAim, sway, sight, loose, step, nextArrow, isOver, standings,
     total: Contest.total,
   };

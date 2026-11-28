@@ -1,4 +1,4 @@
-// Weightlifting screen: weight choice, F and J keys (or each half of a phone), vibration,
+// Weightlifting screen: weight choice, F and J keys (arcade buttons on a phone), vibration,
 // referee lights and results.
 (function (root) {
   'use strict';
@@ -39,6 +39,7 @@
     const art = LiftArt.create(view);
     const avatar = Avatar.createAvatar(Countries, Font, 4);
     const ui = FieldUi.create({ view, mobile, shell });
+    const { buzz } = mobile;
     let contest = null, record = null;
     let held, pressedAt, lastTapAt, buzzIn, shown;
     try { record = Number(localStorage.getItem('weightlifting.best')) || null; } catch (_) {}
@@ -59,13 +60,13 @@
     }
 
     const resultsShown = () => contest.phase === 'landed' && contest.time > BOARD_DELAY;
-    const resultsReady = () => resultsShown() && contest.time > BOARD_DELAY + GUARD;
-
-    // Android phones; iPhone Safari has no vibration for web pages.
-    function buzz(pattern) {
-      if (!mobile.isTouch() || !navigator.vibrate) return;
-      try { navigator.vibrate(pattern); } catch (_) {}
+    // 'win' or 'loss' while the final table is up, otherwise null.
+    function outcome() {
+      if (!resultsShown() || !Weightlifting.isOver(contest)) return null;
+      const first = Weightlifting.standings(contest)[0];
+      return first.isPlayer && Weightlifting.best(first) ? 'win' : 'loss';
     }
+    const resultsReady = () => resultsShown() && contest.time > BOARD_DELAY + GUARD;
 
     // ---------- Layout ----------
 
@@ -73,15 +74,18 @@
     function places() {
       const { w: W, h: H, portrait, top, bottom } = view.layout;
       if (!portrait) {
+        const touch = mobile.isTouch();
         return {
           k: 1, ox: W / 2, oy: 0, half: 84,
-          title: 5, gauge: 33, bars: { x: [44, 276], y: 46, h: 96 }, meter: { x: 299, y: 48, h: 90 },
+          title: 5, gauge: 33, bars: { x: [44, 276], y: 46, h: touch ? 70 : 96 }, meter: { x: 299, y: 48, h: touch ? 66 : 90 },
+          pads: { x: [35, 285], y: H - 20, r: 20 },
           buttons: { y: 157, h: 17 },
         };
       }
       const k = H >= 380 ? 4 / 3 : 1;
       const tallPhone = H >= 380;
-      const feet = Math.round(H - bottom - Math.max(36, H * (tallPhone ? 0.17 : 0.12)));
+      const room = mobile.isTouch() ? Math.max(70, H * 0.21) : Math.max(36, H * (tallPhone ? 0.17 : 0.12));
+      const feet = Math.round(H - bottom - room);
       const oy = feet - LiftArt.FLOOR * k;
       const y = top + (tallPhone ? 84 : 72);
       const tall = Math.max(36, Math.min(110, oy + 30 * k - 8 - y));
@@ -89,6 +93,7 @@
         k, ox: W / 2, oy, half: k > 1 ? 62 : 84,
         title: top + 40, gauge: top + 67, bars: { x: [30, W - 30], y, h: tall },
         meter: { x: W - 11, y, h: tall }, buttons: { y: feet + 9, h: 22 },
+        pads: { x: [43, W - 43], y: Math.round(H - bottom - 25), r: 28 },
       };
     }
 
@@ -301,6 +306,31 @@
       }
     }
 
+    // On touch screens, two arcade buttons stand where the thumbs are.
+    function pads(now) {
+      const { phase, started, result } = contest;
+      if (phase === 'choose' || phase === 'lift') return;
+      if (phase === 'landed' && result.mark !== null) return;
+      const at = places().pads;
+      const tilt = Weightlifting.tilt(contest);
+      // Until the player taps, the buttons show what to do by pressing themselves.
+      const hint = phase === 'pull' && (!started || now - lastTapAt > IDLE_HINT);
+      [[-1, 'left', 'red'], [1, 'right', 'blue']].forEach(([sign, side, own], i) => {
+        const since = now - pressedAt[side];
+        let press = held[side] || since < PRESS_TIME ? 1 : Math.max(0, 1 - (since - PRESS_TIME) / 70);
+        if (hint) press = Math.max(0, Math.sin((now / 360) * Math.PI * 2)) ** 0.5;
+        let color = own, alert = false;
+        if (phase === 'landed') { color = 'off'; press = 0; }
+        else if (phase === 'hold' && contest.markers[side].stopped !== null) { color = 'green'; press = 1; }
+        else if (phase === 'pull' && unstable() && Math.sign(tilt) === sign) alert = Math.floor(now / 100) % 2 === 0;
+        const burst = phase !== 'landed' && since < 220 ? since / 220 : null;
+        art.arcadeButton(at.x[i], at.y, at.r, color, { press, alert, burst });
+        if (phase === 'pull' && unstable() && Math.sign(tilt) === sign) {
+          text('TAP!', at.x[i], at.y - at.r * 1.35 - 6, alert ? '#ffd54a' : '#ff9d3d', 1, 'center');
+        }
+      });
+    }
+
     function stage(now) {
       const at = places(), { res } = view.layout;
       art.hall(Math.round(at.oy + 90 * at.k));
@@ -313,8 +343,9 @@
       ctx.setTransform(res * at.k, 0, 0, res * at.k, Math.round(res * at.ox), Math.round(res * (at.oy + jolt)));
       art.platform(at.k > 1 ? 130 : view.layout.portrait ? 180 : 200);
       lifter(p, at.half);
-      keys(p, at.half, now);
+      if (!mobile.isTouch()) keys(p, at.half, now);
       ctx.restore();
+      if (mobile.isTouch()) pads(now);
     }
 
     function heading(title, subtitle, color = '#ffffff') {
@@ -458,7 +489,7 @@
       ui.footer(false);
     }
 
-    return { lock: false, start, update, draw, key, keyUp, click, down, pause, resultsShown };
+    return { lock: false, start, update, draw, key, keyUp, click, down, pause, resultsShown, outcome };
   }
 
   root.WeightliftingUi = { create };
