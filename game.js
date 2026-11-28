@@ -206,6 +206,12 @@
   // Must run inside a click or key press so the pointer can be locked.
   function start() {
     paused = false;
+    // Competing wears the athlete out: too tired, the event explains what to train.
+    if (Career.missing(store.career, eventId).length) {
+      show('events');
+      home.events.explain(eventId);
+      return;
+    }
     newRace();
     active = screens[eventId] || null;
     if (active) {
@@ -215,6 +221,9 @@
     } else {
       state = 'start';
     }
+    // Spent after the form of this competition has been taken.
+    Career.wear(store.career, eventId);
+    store.save();
     canvas.style.cursor = '';
     mobile.closeName();
     if (mobile.isTouch()) mobile.enterFullscreen();
@@ -681,6 +690,7 @@
       menu.draw(profile, now, mobile.isTouch(), {
         ...Home.EVENTS.find((ev) => ev.id === eventId),
         needs: Career.needs(store.career, eventId), medal: store.career.medals[eventId],
+        locked: Career.missing(store.career, eventId).length > 0,
       });
     } else if (careerScreen()) {
       careerUi.draw(state, now, mobile.isTouch(), art);

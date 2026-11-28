@@ -126,3 +126,11 @@ test('the locked window fits on screen', () => {
     assert.ok(panel.x >= 0 && panel.x + panel.w <= view.layout.w && panel.y >= 0);
   }
 });
+
+test('a tired athlete is shown what to train', () => {
+  const { view } = make();
+  const home = Home.createHome(view, null, undefined,
+    (id) => (id === 'fencing' ? [{ name: 'REFLEXES', value: 40, min: 50 }] : []));
+  home.events.explain('fencing');
+  assert.deepStrictEqual(home.events.key({ key: 'Enter' }), { type: 'screen', id: 'training' });
+});

@@ -165,3 +165,17 @@ test('athletes saved with low bars are raised once', () => {
   assert.strictEqual(old.stats.aim, 90);
   assert.strictEqual(Career.create({ version: old.version, stats: { speed: 20 } }).stats.speed, 20);
 });
+
+test('competing spends the two bars of the event', () => {
+  const career = Career.create();
+  assert.deepStrictEqual(Career.wear(career, 'hurdles400'), { stamina: -10, jump: -5 });
+  assert.strictEqual(career.stats.stamina, Career.START - 10);
+  assert.strictEqual(career.stats.jump, Career.START - 5);
+  assert.strictEqual(career.stats.speed, Career.START);
+  assert.ok(Career.missing(career, 'hurdles400').length);
+});
+
+test('a bar never goes below empty', () => {
+  const career = Career.create({ version: 2, stats: { stamina: 4, jump: 0 } });
+  assert.deepStrictEqual(Career.wear(career, 'hurdles400'), { stamina: -4 });
+});

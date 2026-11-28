@@ -16,6 +16,7 @@
   const MIN = 50;          // both bars of an event need this much to enter it
   const COOLDOWN = 60 * 60 * 1000; // ms of rest after a training session
   const VERSION = 2;       // of the saved data
+  const WEAR = [10, 5];    // what a competition takes from the main and second bar
   const MAIN_SHARE = 0.7;  // weight of the main bar of an event; the other has the rest
 
   // Event: [short name, main bar, second bar].
@@ -108,12 +109,12 @@
     return changes;
   }
 
-  // The bars an event leans on: [{id, name, value, share}].
+  // The bars an event leans on: [{id, name, value, share, cost}].
   function needs(career, event) {
     const [, main, second] = EVENTS[event];
     return [main, second].map((id, i) => ({
       id, name: STATS.find((s) => s.id === id).name, value: career.stats[id],
-      share: i ? 1 - MAIN_SHARE : MAIN_SHARE,
+      share: i ? 1 - MAIN_SHARE : MAIN_SHARE, cost: WEAR[i],
     }));
   }
 
@@ -123,6 +124,16 @@
 
   // The bars still too low to enter an event.
   const missing = (career, event) => needs(career, event).filter((n) => n.value < MIN);
+
+  // Spends the bars of an event on competing in it. Returns {stat: change}.
+  function wear(career, event) {
+    const changes = {};
+    for (const { id, value, cost } of needs(career, event)) {
+      career.stats[id] = clamp(value - cost);
+      if (career.stats[id] !== value) changes[id] = career.stats[id] - value;
+    }
+    return changes;
+  }
 
   // What the form does to a competition: a factor for the strength of the rivals
   // and one for how forgiving the controls are. Both are 1 for a new athlete.
@@ -156,8 +167,8 @@
   }
 
   const api = {
-    STATS, MAX, START, MIN, COOLDOWN, EVENTS, ACTIONS, total,
-    create, wait, train, needs, missing, form, edge, award, count, champion, forPlace, forDuel,
+    STATS, MAX, START, MIN, COOLDOWN, WEAR, EVENTS, ACTIONS, total,
+    create, wait, train, needs, missing, wear, form, edge, award, count, champion, forPlace, forDuel,
   };
   if (typeof module !== 'undefined') module.exports = api;
   else root.Career = api;

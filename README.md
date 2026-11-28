@@ -205,6 +205,11 @@ bar (70%) and a second one (30%); the runner setup shows both.
 missing bars; choosing it explains what it needs and leads to training. Athletes saved before this
 rule had their lower bars raised to 50 once.
 
+**Competing wears the athlete out:** starting a competition (or retrying) takes 10 points from the
+event's main bar and 5 from the second one, even if it is abandoned. The form of that competition
+is taken before paying. The runner setup shows the cost; a tired athlete cannot start and is shown
+what to train.
+
 The resulting form changes the strength of the rivals (from 10% stronger with empty bars to 10%
 weaker with full ones) and, in most events, how forgiving the controls are. It does not change the
 player's own marks. Tables live in `career.js`.

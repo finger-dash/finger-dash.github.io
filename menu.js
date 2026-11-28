@@ -48,7 +48,7 @@
   }
 
   function createMenu(view, avatar, Countries, Font) {
-    const Layout = root.Layout;
+    const { Layout, Career } = root;
     const { ctx, rect, text } = view;
     const list = Countries.COUNTRIES;
     const boxes = () => {
@@ -155,16 +155,18 @@
       text(country.name, cx, p.y + 4, '#fff', 1, 'center');
       if (event.medal) root.CareerUi.medal(rect, event.medal, p.x + p.w - 10, p.y + 3);
       (event.needs || []).forEach((need, i) => {
-        const y = p.y + p.h - 19 + i * 9, wide = p.w - 62;
+        const y = p.y + p.h - 19 + i * 9, wide = p.w - 82;
         text(need.name, p.x + 4, y, '#9ab');
         rect(p.x + 40, y, wide, 5, '#25254a');
         rect(p.x + 40, y, Math.round((wide * need.value) / 100), 5, i ? '#74acdf' : '#5be37d');
-        text(`${need.value}%`, p.x + p.w - 4, y, '#fff', 1, 'right');
+        text(`${need.value}%`, p.x + p.w - 20, y, need.value < Career.MIN ? '#ff8890' : '#fff', 1, 'right');
+        text(`-${need.cost}`, p.x + p.w - 4, y, '#f39c4a', 1, 'right'); // what playing costs
       });
 
       const s = b.start;
-      rect(s.x, s.y, s.w, s.h, '#5be37d');
-      text(touch ? 'START' : 'START - ENTER', s.x + s.w / 2, s.y + Math.floor((s.h - 5) / 2), '#10300f', 1, 'center');
+      rect(s.x, s.y, s.w, s.h, event.locked ? '#9ab' : '#5be37d');
+      const label = event.locked ? 'TRAIN TO UNLOCK' : 'START';
+      text(touch ? label : `${label} - ENTER`, s.x + s.w / 2, s.y + Math.floor((s.h - 5) / 2), '#10300f', 1, 'center');
     }
 
     return { draw, key, click, hovering };

@@ -139,6 +139,13 @@
       asked = EVENTS[i];
       return { type: 'changed' };
     }
+    // Shows the group of a locked event with its window open.
+    function explain(id) {
+      const i = EVENTS.findIndex((e) => e.id === id);
+      focus = i;
+      page = Math.floor(i / PAGE);
+      asked = EVENTS[i];
+    }
     function answer(train) {
       asked = null;
       return train ? { type: 'screen', id: 'training' } : { type: 'changed' };
@@ -351,7 +358,7 @@
 
     return {
       title: { key: titleKey, click: titleClick, hovering: titleHovering, draw: drawTitle },
-      events: { key: eventKey, click: eventClick, hovering: eventHovering, draw: drawEvents },
+      events: { key: eventKey, click: eventClick, hovering: eventHovering, draw: drawEvents, explain },
     };
   }
 
