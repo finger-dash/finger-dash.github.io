@@ -304,8 +304,7 @@
 
       if (mobile.isTouch()) {
         const quit = shell.quitBox();
-        rect(quit.x, quit.y, quit.w, quit.h, '#10101c');
-        text('MENU', quit.x + quit.w / 2, quit.y + 4, '#fff', 1, 'center');
+        Layout.drawBack(view, quit, 'MENU');
       } else if (!shell.locked() && !shell.paused()) {
         text('CLICK TO CAPTURE THE POINTER', W / 2, H - 30, '#fff', 1, 'center');
       }

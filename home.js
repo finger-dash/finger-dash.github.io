@@ -43,6 +43,7 @@
 
   const inside = (b, x, y) => x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h;
   const box = (x, y, w, h) => ({ x, y, w, h });
+  const Back = typeof module !== 'undefined' ? require('./layout.js') : root.Layout;
 
   // Hit boxes and positions in logical coordinates.
   function titleBoxes({ w: W, h: H, portrait, top, bottom }) {
@@ -82,11 +83,20 @@
     };
   }
 
+  // The window that explains why an event is locked.
+  function popupBoxes(W, H) {
+    const w = Math.min(W - 12, 190), h = 108;
+    const panel = box(Math.round((W - w) / 2), Math.round((H - h) / 2), w, h);
+    const bw = Math.floor((w - 18) / 2), by = panel.y + h - 24;
+    return { panel, train: box(panel.x + 6, by, bw, 18), close: box(panel.x + 12 + bw, by, bw, 18) };
+  }
+
   function eventBoxes({ w: W, h: H, portrait, top, bottom }) {
     const cols = portrait ? 2 : 3;
     const rows = Math.ceil(PAGE / cols);
     const gap = portrait ? 4 : 6;
-    const first = portrait ? top + 24 : 22;
+    const first = portrait ? top + 26 : 26;
+    const back = Back.backBox({ portrait, top });
     const end = portrait ? H - bottom - 36 : 154;
     const pager = portrait ? H - bottom - 31 : 158;
     const side = portrait ? 4 : 10;
@@ -94,8 +104,9 @@
     const h = Math.floor((end - first - gap * (rows - 1)) / rows);
     return {
       cols,
-      back: box(4, portrait ? top + 3 : 4, 30, 13),
-      title: { x: portrait ? W / 2 + 14 : W / 2, y: portrait ? top + 7 : 6, size: portrait ? 1 : 2 },
+      back,
+      title: { x: portrait ? (W + back.x + back.w) / 2 : W / 2, y: portrait ? top + 9 : 9, size: portrait ? 1 : 2 },
+      locked: popupBoxes(W, H),
       // Card of the event i, on its own page.
       card: (i) => box(side + ((i % PAGE) % cols) * (w + gap), first + Math.floor((i % PAGE) / cols) * (h + gap), w, h),
       previous: box(side, pager, 40, portrait ? 20 : 12),
@@ -113,10 +124,25 @@
 
   // art: createArt() result; only needed by the draw functions.
   // medals: () => {eventId: 'gold' | 'silver' | 'bronze'} won so far.
-  function createHome(view, art, medals = () => ({})) {
+  // needs: (eventId) => [{name, value, min}] bars it asks for; short ones lock it.
+  function createHome(view, art, medals = () => ({}), needs = () => []) {
     const { rect, text } = view;
     let focus = 0; // keyboard focus on the event grid
     let page = 0;
+    let asked = null; // locked event whose window is open
+    const locked = (id) => needs(id).some((n) => n.value < n.min);
+
+    // A locked event explains itself instead of starting.
+    function choose(i) {
+      const action = pick(EVENTS, i, 'event');
+      if (!action || !locked(action.id)) return action;
+      asked = EVENTS[i];
+      return { type: 'changed' };
+    }
+    function answer(train) {
+      asked = null;
+      return train ? { type: 'screen', id: 'training' } : { type: 'changed' };
+    }
 
     // Shows another group; the focus keeps its place in the grid.
     function turn(step) {
@@ -149,10 +175,14 @@
     }
 
     function eventKey(e) {
+      if (asked) {
+        if (e.key === 'Enter') return answer(true);
+        return e.key === 'Escape' || e.key === 'Backspace' ? answer(false) : null;
+      }
       if (e.key === 'PageDown') return turn(1);
       if (e.key === 'PageUp') return turn(-1);
       if (e.key === 'Escape' || e.key === 'Backspace') return { type: 'back' };
-      if (e.key === 'Enter') return pick(EVENTS, focus, 'event');
+      if (e.key === 'Enter') return choose(focus);
       const { cols } = eventBoxes(view.layout);
       const step = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -cols, ArrowDown: cols }[e.key];
       if (!step) return null;
@@ -163,10 +193,14 @@
 
     function eventClick(x, y) {
       const boxes = eventBoxes(view.layout);
+      if (asked) {
+        if (inside(boxes.locked.train, x, y)) return answer(true);
+        return inside(boxes.locked.close, x, y) ? answer(false) : null;
+      }
       if (inside(boxes.back, x, y)) return { type: 'back' };
       if (inside(boxes.previous, x, y)) return turn(-1);
       if (inside(boxes.next, x, y)) return turn(1);
-      return pick(EVENTS, cardAt(x, y), 'event');
+      return choose(cardAt(x, y));
     }
 
     // Event whose card on this page holds the point, or -1.
@@ -179,6 +213,7 @@
     // Only looks: pointing at an arrow must not turn the page.
     const eventHovering = (x, y) => {
       const b = eventBoxes(view.layout);
+      if (asked) return inside(b.locked.train, x, y) || inside(b.locked.close, x, y);
       return [b.back, b.previous, b.next].some((box_) => inside(box_, x, y)) ||
         pick(EVENTS, cardAt(x, y), 'event') !== null;
     };
@@ -226,13 +261,11 @@
       const boxes = eventBoxes(view.layout);
       const { ctx } = view;
       background();
-      const back = boxes.back;
-      rect(back.x, back.y, back.w, back.h, '#2b2b4a');
-      text('BACK', back.x + back.w / 2, middle(back), '#fff', 1, 'center');
+      Back.drawBack(view, boxes.back);
       text('CHOOSE YOUR EVENT', boxes.title.x, boxes.title.y, '#f9d56e', boxes.title.size, 'center');
       const { portrait, top } = view.layout;
       const tally = `GOLD ${golds()}/${EVENTS.length}`;
-      if (portrait) text(tally, view.W / 2, top + 16, '#fff', 1, 'center');
+      if (portrait) text(tally, boxes.title.x, top + 17, '#fff', 1, 'center');
       else text(tally, view.W - 6, 8, '#fff', 1, 'right');
 
       for (const [b, label] of [[boxes.previous, '<'], [boxes.next, '>']]) {
@@ -263,11 +296,56 @@
           text('SOON', ax + w - 12, ay + 4, '#f9d56e', 1, 'center');
         }
         text(event.name, c.x + c.w / 2, ay + h + 3, event.available ? '#fff' : '#8890b0', 1, 'center');
+        if (locked(event.id)) drawLock(c, event.id, ay + h + 1 - c.y);
         const won = medals()[event.id];
         if (won) root.CareerUi.medal(rect, won, c.x + c.w - 9, c.y + 2);
       });
       if (!touch) {
         text('ARROWS: MOVE - PAGE UP/DOWN - ENTER - ESC', boxes.hint.x, boxes.hint.y, '#667', 1, 'center');
+      }
+      if (asked) drawPopup(boxes.locked, touch);
+    }
+
+    function padlock(cx, y) {
+      rect(cx - 4, y, 8, 2, '#c9d1dc');
+      rect(cx - 4, y, 2, 6, '#c9d1dc');
+      rect(cx + 2, y, 2, 6, '#c9d1dc');
+      rect(cx - 6, y + 5, 12, 9, '#f9d56e');
+      rect(cx - 1, y + 7, 2, 4, '#14142a');
+    }
+
+    // Over the picture of a card, `high` px: a padlock and the bars still missing.
+    function drawLock(c, id, high) {
+      const { ctx } = view;
+      const short = needs(id).filter((n) => n.value < n.min);
+      ctx.globalAlpha = 0.8;
+      rect(c.x + 1, c.y + 1, c.w - 2, high - 1, '#05050f');
+      ctx.globalAlpha = 1;
+      const cx = c.x + c.w / 2;
+      const y = c.y + Math.max(2, Math.floor((high - 24 - short.length * 7) / 2));
+      padlock(cx, y);
+      text('TRAIN TO UNLOCK', cx, y + 17, '#fff', 1, 'center');
+      short.forEach((n, i) => text(`${n.name} ${n.value}/${n.min}`, cx, y + 25 + i * 7, '#ff8890', 1, 'center'));
+    }
+
+    function drawPopup({ panel, train, close }, touch) {
+      const { ctx, W, H } = view;
+      ctx.globalAlpha = 0.7;
+      rect(0, 0, W, H, '#05050f');
+      ctx.globalAlpha = 1;
+      rect(panel.x - 1, panel.y - 1, panel.w + 2, panel.h + 2, '#f9d56e');
+      rect(panel.x, panel.y, panel.w, panel.h, '#14142a');
+      const cx = panel.x + panel.w / 2;
+      padlock(cx, panel.y + 6);
+      text(asked.name, cx, panel.y + 26, '#f9d56e', 1, 'center');
+      text('TRAIN TO UNLOCK THIS EVENT', cx, panel.y + 36, '#fff', 1, 'center');
+      needs(asked.id).forEach((n, i) => {
+        const ok = n.value >= n.min;
+        text(`${n.name} ${n.value}% - NEEDS ${n.min}%`, cx, panel.y + 52 + i * 10, ok ? '#5be37d' : '#ff8890', 1, 'center');
+      });
+      for (const [b, label, color] of [[train, 'GO TRAIN', '#5be37d'], [close, 'CLOSE', '#9ab']]) {
+        rect(b.x, b.y, b.w, b.h, color);
+        text(touch ? label : `${label} - ${b === train ? 'ENTER' : 'ESC'}`, b.x + b.w / 2, middle(b), '#10101c', 1, 'center');
       }
     }
 

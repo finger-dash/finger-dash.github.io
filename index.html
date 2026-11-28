@@ -38,6 +38,9 @@
     user-select: text; -webkit-user-select: text;
   }
   #name-form button { background: #5be37d; color: #10101c; font-size: 16px; }
+  /* Catches the first tap while "tap to start" is drawn on the game. */
+  #splash { position: fixed; inset: 0; cursor: pointer; }
+  #splash[hidden] { display: none; }
   #rotate {
     display: none; position: fixed; inset: 0; align-items: center; justify-content: center;
     background: #10101c; color: #f9d56e; font: bold 22px monospace; text-align: center;
@@ -48,6 +51,7 @@
 <body>
 <canvas id="game" width="640" height="360" aria-label="Finger Podium game"></canvas>
 <div id="safe-area" aria-hidden="true"></div>
+<div id="splash" role="button" aria-label="Tap to start" hidden></div>
 <div id="rotate">ROTATE YOUR TABLET<br>TO PLAY</div>
 <form id="name-form" hidden autocomplete="off">
   <input id="name-input" type="text" aria-label="Runner name" placeholder="YOUR NAME"

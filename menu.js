@@ -15,12 +15,12 @@
   function landscapeBoxes() {
     return {
       cols: 3,
-      flag: (i) => box(10 + (i % 3) * 54, 22 + Math.floor(i / 3) * 28, 50, 26),
-      name: box(10, 137, 158, 12),
-      level: (i) => box(10 + i * 54, 153, 50, 11),
+      flag: (i) => box(10 + (i % 3) * 54, 27 + Math.floor(i / 3) * 28, 50, 26),
+      name: box(10, 139, 158, 12),
+      level: (i) => box(10 + i * 54, 155, 50, 11),
       start: box(190, 156, 120, 18),
-      back: box(10, 4, 30, 13),
-      title: { x: 46, y: 6, align: 'left' },
+      back: { x: 4, y: 4, w: 54, h: 20 },
+      title: { x: 64, y: 9, align: 'left' },
       preview: box(180, 4, 130, 150),
       hint: { x: 10, y: 170, align: 'left' },
     };
@@ -40,14 +40,15 @@
       name: box(4, nameY, W - 8, 16),
       level: (i) => box(4 + i * 65, levelY, 62, 15),
       start,
-      back: box(4, top + 3, 30, 13),
-      title: { x: W / 2, y: top + 5, align: 'center' },
-      preview: box(4, top + 19, W - 8, flagsY - top - 23),
+      back: { x: 4, y: top + 3, w: 54, h: 20 },
+      title: { x: (W + 58) / 2, y: top + 8, align: 'center' },
+      preview: box(4, top + 26, W - 8, flagsY - top - 30),
       hint: { x: W / 2, y: hint, align: 'center' },
     };
   }
 
   function createMenu(view, avatar, Countries, Font) {
+    const Layout = root.Layout;
     const { ctx, rect, text } = view;
     const list = Countries.COUNTRIES;
     const boxes = () => {
@@ -105,9 +106,7 @@
       rect(0, 0, W, H, '#14142a');
       for (let y = 0; y < H; y += 6) rect(0, y, W, 1, '#1b1b38');
       text(event.name, b.title.x, b.title.y, '#f9d56e', 2, b.title.align);
-      const back = b.back;
-      rect(back.x, back.y, back.w, back.h, '#2b2b4a');
-      text('BACK', back.x + back.w / 2, back.y + Math.floor((back.h - 5) / 2), '#fff', 1, 'center');
+      Layout.drawBack(view, b.back);
 
       list.forEach((c, i) => {
         const f = b.flag(i), selected = c.id === model.country;

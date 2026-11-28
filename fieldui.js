@@ -37,8 +37,7 @@
     function footer(capture) {
       if (mobile.isTouch()) {
         const quit = shell.quitBox();
-        rect(quit.x, quit.y, quit.w, quit.h, '#10101c');
-        text('MENU', quit.x + quit.w / 2, quit.y + 4, '#fff', 1, 'center');
+        Layout.drawBack(view, quit, 'MENU');
       } else if (capture && !shell.locked() && !shell.paused()) {
         // At the very bottom, clear of the instructions.
         shade(view.W / 2 - 60, view.H - 12, 120, 11);

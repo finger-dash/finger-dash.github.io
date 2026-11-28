@@ -224,9 +224,78 @@
     return p;
   }
 
+  // ---------- Training ----------
+
+  // Squat and press: `squat` 0..1 bends the legs, `up` 0..1 takes the bar from the
+  // shoulders to straight arms. The hands never leave it.
+  function press(squat, up) {
+    const lift = -10 * squat;
+    const bar = lerp(46, 74, up) + lift;
+    const z = lerp(8, 0, up);
+    const p = make({ lift });
+    p.legs = sides((s) => limb([s * lerp(6, 13, squat), lerp(12, 11, squat), 7 * squat], [s * lerp(6, 9, squat), 2, 0]));
+    p.arms = sides((s) => arm([s * lerp(19, 16, up), lerp(36, 59, up), lerp(5, 0, up)], [s * 14, bar - lift, z]));
+    p.props.push({ type: 'barbell', at: [0, bar, z], half: 29 });
+    return p;
+  }
+
+  // Lotus position: legs crossed on the floor, hands resting on the knees.
+  function lotus(breath = 0) {
+    const p = make({ lift: -15 + breath });
+    p.legs = sides((s) => limb([s * 18, 5, 5], [-s * 5, 3 + (s > 0 ? 2 : 0), s > 0 ? 12 : 9]));
+    p.arms = sides((s) => arm([s * 15, 34, 3], [s * 18, 25 - breath, 8]));
+    return p;
+  }
+
+  // Juggling three balls in a cascade; `t` counts throws.
+  function juggle(t) {
+    const p = make({ nod: 0 });
+    const hands = sides((s) => {
+      const dip = Math.sin((t * 1.5 + (s > 0 ? 0.5 : 0)) * Math.PI * 2);
+      return [s * 12 - s * dip * 2, 35 + dip * 3, 14];
+    });
+    p.arms = sides((s) => arm([s * 16, 34, 3], hands[s < 0 ? 0 : 1]));
+    ['#e8505b', '#5be37d', '#f9d56e'].forEach((color, i) => {
+      const u = (t + (i * 2) / 3) % 2;           // one throw to each side
+      const k = u % 1, from = u < 1 ? -1 : 1;
+      const x = lerp(from * 12, -from * 12, k);
+      p.props.push({ type: 'ball', at: [x, 39 + Math.sin(k * Math.PI) * 38, 16], size: 7, color });
+    });
+    return p;
+  }
+
+  // Target rifle held to the shoulder, aiming ahead; `kick` 0..1 is the recoil.
+  function rifle(kick = 0) {
+    const p = make({ lean: -kick * 2 });
+    p.legs = sides((s) => limb([s * 6, 12, s * 3 + 1], [s * 7, 2, s * 8]));
+    const back = kick * 2.5;
+    const x = 7;
+    const at = (y, z) => [x, y, z - back];
+    const part = (a, b, color, width) => p.props.push(stick(a, b, color, width));
+    p.arms = [arm([-4, 39, 15], [4, 48, 23 - back]), arm([16, 41, 0], [9, 45, 8 - back])];
+    part(at(46, -1), at(50, 7), '#6b4526', 5.5);       // butt
+    part(at(50, 6), at(51, 14), '#8a5a30', 4);         // grip
+    part(at(46, 8), at(48, 10), '#2a2e38', 1.5);       // trigger
+    part(at(51.5, 12), at(52, 21), '#4a5060', 3.6);    // receiver
+    part(at(49.5, 20), at(50, 28), '#8a5a30', 3);      // fore-end
+    part(at(52.5, 20), at(52.5, 45), '#2a2e38', 1.6);  // barrel
+    part(at(52.5, 43), at(55, 43), '#2a2e38', 1);      // front sight
+    part(at(53, 13), at(56, 13), '#2a2e38', 1);        // scope mounts
+    part(at(53, 20), at(56, 20), '#2a2e38', 1);
+    part(at(57, 10), at(57, 23), '#171a22', 3);        // scope
+    part(at(57, 22), at(57, 25), '#171a22', 4);
+    part(at(57, 24.5), at(57, 25.5), '#6fe0d0', 2.2);  // lens
+    if (kick > 0.5) {
+      part(at(52.5, 47), at(52.5, 53), '#f9d56e', 3);
+      part(at(55, 48), at(57, 51), '#f39c4a', 1.5);
+      part(at(50, 48), at(48, 51), '#f39c4a', 1.5);
+    }
+    return p;
+  }
+
   const kinds = {
     run, javelin, discus, hammer, flop, plant, dive, swim, row, cycle, climb, surf, balance,
-    shoot, paddle, kick, keeper, fence,
+    shoot, paddle, kick, keeper, fence, press, lotus, juggle, rifle,
   };
 
   // The loop shown on the setup screen of each event.

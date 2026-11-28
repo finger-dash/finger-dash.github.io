@@ -14,7 +14,8 @@
   };
   try { store.career = Career.create(JSON.parse(localStorage.getItem('career'))); } catch (_) {}
   if (!store.career) store.career = Career.create();
-  const home = Home.createHome(view, art, () => store.career.medals);
+  const home = Home.createHome(view, art, () => store.career.medals,
+    (id) => Career.needs(store.career, id).map((n) => ({ ...n, min: Career.MIN })));
   const careerUi = CareerUi.create({
     view, store, avatar: Avatar.createAvatar(Countries, Font, 4),
     look: () => ({
@@ -50,6 +51,34 @@
   const mobile = Mobile.createMobile({ canvas, detector, Font, Layout });
   const sound = Sound.createAudio();
   let heard = null; // outcome the crowd has already reacted to
+  sound.unlock(); // heard right away where the browser allows it
+
+  // Where it does not, "tap to start" covers the title until the first tap or key,
+  // which is consumed: it starts the sound and presses nothing.
+  const splash = document.getElementById('splash');
+  let splashPressed = false;
+  const closeSplash = () => { splash.hidden = true; };
+  splash.hidden = !sound.blocked();
+  splash.addEventListener('pointerdown', () => { splashPressed = true; });
+  splash.addEventListener('click', closeSplash);
+  window.addEventListener('keydown', (e) => {
+    if (splash.hidden || e.metaKey || e.ctrlKey || e.altKey) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    closeSplash();
+  }, true);
+
+  function drawSplash(now) {
+    const { w: W, h: H } = view.layout;
+    const { title, podium: { cx, base, ...size }, modes } = Home.titleBoxes(view.layout);
+    rect(0, 0, W, H, '#14142a');
+    for (let y = 0; y < H; y += 6) rect(0, y, W, 1, '#1b1b38');
+    for (const line of title) text(line.text, line.x, line.y, '#f9d56e', line.size, 'center');
+    art.podium(cx, base, size, profile.country, now);
+    if (Math.floor(now / 500) % 2 === 0) {
+      text(mobile.isTouch() ? 'TAP TO START' : 'CLICK TO START', W / 2, modes[0].y + 8, '#fff', 2, 'center');
+    }
+  }
 
   // Every event but the hurdles lives in its own screen with a common interface:
   // lock, start, update, draw, key, click and optionally keyUp, flick, down, move, up, wheel,
@@ -371,7 +400,7 @@
   }
   // Touch only: button to leave the race.
   function quitBox() {
-    return { x: 5, y: 24 + view.layout.top, w: 30, h: 13 };
+    return { x: 4, y: 21 + view.layout.top, w: 40, h: 16 };
   }
   function over(b, x, y) {
     return x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h;
@@ -581,8 +610,7 @@
     const live = state === 'running' || state === 'start';
     if (live && mobile.isTouch()) {
       const quit = quitBox();
-      rect(quit.x, quit.y, quit.w, quit.h, '#10101c');
-      text('MENU', quit.x + quit.w / 2, quit.y + 4, '#fff', 1, 'center');
+      Layout.drawBack(view, quit, 'MENU');
       if (state === 'start') {
         rect(W / 2 - 78, horizon - 3, 156, 11, '#10101c');
         text('SWIPE DOWN TO RUN - FLICK UP TO JUMP', W / 2, horizon, '#fff', 1, 'center');
@@ -665,6 +693,9 @@
     }
     if (awarded) drawMedal();
     if (paused) drawPause();
+    // The sound may start by itself a moment after loading.
+    if (!splash.hidden && !splashPressed && !sound.blocked()) closeSplash();
+    if (!splash.hidden) drawSplash(now);
     document.body.classList.toggle('rotate', mobile.needsRotation());
     requestAnimationFrame(frame);
   }

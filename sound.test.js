@@ -71,6 +71,13 @@ function fakeBrowser() {
   return { played, listeners, sound, clock, names };
 }
 
+test('the sound reports that it waits for a gesture', () => {
+  const { listeners, sound } = fakeBrowser();
+  assert.strictEqual(sound.blocked(), false); // not asked for yet
+  listeners.pointerup();
+  assert.strictEqual(sound.blocked(), false);
+});
+
 test('the first gesture plays the music, then the announcer, then the crowd, only once', () => {
   const { played, listeners, sound, names } = fakeBrowser();
   sound.react('win'); // nothing before a gesture

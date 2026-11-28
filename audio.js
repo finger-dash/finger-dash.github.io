@@ -1,5 +1,6 @@
-// Sound playback. Browsers only allow sound after the first tap, click or key press, so
-// everything starts there: the music of the menus, then the announcer and then the crowd.
+// Sound playback: the music of the menus, then the announcer and then the crowd. The game
+// asks for it as soon as the page loads; browsers that do not allow that keep it waiting
+// until the first tap, click or key press.
 (function (root) {
   'use strict';
 
@@ -92,7 +93,7 @@
       if (inMenu) startMusic();
     }
 
-    // Must run inside a user gesture.
+    // Safe to call at any time; only a user gesture is sure to be heard.
     function unlock() {
       if (!Context) return;
       try {
@@ -154,7 +155,10 @@
       target.document.addEventListener('visibilitychange', () => hide(target.document.hidden));
     }
 
-    return { unlock, menu, react, call, hide };
+    // True while the browser holds the sound back until the first tap or key.
+    const blocked = () => !!context && context.state !== 'running';
+
+    return { unlock, menu, react, call, hide, blocked };
   }
 
   const api = { createAudio, VOICE_DELAY, AFTER_VOICE, MUSIC_LEAD };

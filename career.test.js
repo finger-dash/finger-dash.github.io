@@ -14,8 +14,11 @@ test('every event has bars and every bar helps some event', () => {
 
 test('every bar can be filled with free training', () => {
   const career = Career.create();
+  let now = 1;
   for (let i = 0; i < 40; i++) {
-    for (const action of Career.ACTIONS.filter((a) => !a.risky)) Career.train(career, action.id);
+    for (const action of Career.ACTIONS.filter((a) => !a.risky)) {
+      Career.train(career, action.id, Math.random, now += Career.COOLDOWN);
+    }
   }
   assert.ok(Object.values(career.stats).every((v) => v === Career.MAX));
 });
@@ -24,14 +27,14 @@ test('doping fills one bar at random and lowers the others', () => {
   const career = Career.create();
   const changes = Career.train(career, 'doping', () => 0.99);
   assert.strictEqual(career.stats.reflexes, 100);
-  assert.strictEqual(career.stats.speed, Career.START - 10);
-  assert.strictEqual(changes.reflexes, 80);
-  for (let i = 0; i < 5; i++) Career.train(career, 'doping', () => 0.99);
-  assert.strictEqual(career.stats.speed, 0);
+  assert.strictEqual(career.stats.speed, Career.START - 5);
+  assert.strictEqual(changes.reflexes, 100 - Career.START);
+  for (let i = 1; i <= 5; i++) Career.train(career, 'doping', () => 0.99, Date.now() + i * Career.COOLDOWN);
+  assert.strictEqual(career.stats.speed, Career.START - 30);
 });
 
 test('a fitter athlete meets weaker rivals and easier controls', () => {
-  const weak = Career.create({ stats: { strength: 0, balance: 0 } });
+  const weak = Career.create({ version: 2, stats: { strength: 0, balance: 0 } });
   const fit = Career.create({ stats: { strength: 100, balance: 100 } });
   assert.strictEqual(Career.form(fit, 'shotPut'), 1);
   assert.ok(Career.edge(fit, 'shotPut').rivals < 1 && Career.edge(weak, 'shotPut').rivals > 1);
@@ -124,4 +127,41 @@ test('training changes how strong the rivals of every event are', () => {
   require('./rules-race.js');
   const dash = (o) => Events.createMatch('sprint100', { rng: seeded(), ...o }).athletes[1].plan[0];
   assert.ok(dash({ edge }) < dash({}));
+});
+
+test('one session, then an hour of rest', () => {
+  const career = Career.create();
+  assert.strictEqual(Career.wait(career, 1000), 0);
+  assert.ok(Career.train(career, 'weights', Math.random, 1000));
+  assert.strictEqual(Career.train(career, 'rope', Math.random, 2000), null);
+  assert.strictEqual(Career.wait(career, 1000 + Career.COOLDOWN - 1), 1);
+  assert.ok(Career.train(career, 'rope', Math.random, 1000 + Career.COOLDOWN));
+});
+
+test('the rest survives a reload and never exceeds an hour', () => {
+  const career = Career.create();
+  Career.train(career, 'weights', Math.random, 5e9);
+  const back = Career.create(JSON.parse(JSON.stringify(career)));
+  assert.strictEqual(Career.wait(back, 5e9 + 1000), Career.COOLDOWN - 1000);
+  assert.strictEqual(Career.wait(back, 0), Career.COOLDOWN);
+});
+
+test('a session that changes nothing needs no rest', () => {
+  const career = Career.create({ version: 2, stats: { strength: 100 } });
+  Career.train(career, 'weights', Math.random, 1000);
+  assert.strictEqual(Career.wait(career, 1000), 0);
+});
+
+test('an event needs both of its bars at the minimum', () => {
+  const career = Career.create();
+  for (const id of Object.keys(Career.EVENTS)) assert.deepStrictEqual(Career.missing(career, id), []);
+  career.stats.jump = Career.MIN - 1;
+  assert.deepStrictEqual(Career.missing(career, 'hurdles400').map((n) => n.id), ['jump']);
+});
+
+test('athletes saved with low bars are raised once', () => {
+  const old = Career.create({ stats: { speed: 20, aim: 90 } });
+  assert.strictEqual(old.stats.speed, Career.START);
+  assert.strictEqual(old.stats.aim, 90);
+  assert.strictEqual(Career.create({ version: old.version, stats: { speed: 20 } }).stats.speed, 20);
 });

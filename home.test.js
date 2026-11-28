@@ -103,3 +103,26 @@ test('pointing at the arrows does not turn the page', () => {
   assert.ok(home.events.hovering(...centre(next)));
   assert.deepStrictEqual(home.events.click(...centre(card(0))), { type: 'event', id: 'hurdles400' });
 });
+
+test('a locked event explains itself and leads to training', () => {
+  const { view } = make();
+  const home = Home.createHome(view, null, undefined,
+    (id) => (id === 'hurdles400' ? [{ name: 'JUMP', value: 40, min: 50 }] : []));
+  const boxes = Home.eventBoxes(view.layout);
+  assert.deepStrictEqual(home.events.click(...centre(boxes.card(0))), { type: 'changed' });
+  assert.strictEqual(home.events.click(...centre(boxes.card(1))), null); // the window is on top
+  assert.deepStrictEqual(home.events.click(...centre(boxes.locked.close)), { type: 'changed' });
+  assert.deepStrictEqual(home.events.click(...centre(boxes.card(1))), { type: 'event', id: 'longJump' });
+  home.events.click(...centre(boxes.card(0)));
+  assert.deepStrictEqual(home.events.click(...centre(boxes.locked.train)), { type: 'screen', id: 'training' });
+  home.events.key({ key: 'ArrowLeft' });
+  home.events.key({ key: 'ArrowRight' });
+});
+
+test('the locked window fits on screen', () => {
+  for (const device of Object.values(DEVICES)) {
+    const { view } = make(device);
+    const { panel } = Home.eventBoxes(view.layout).locked;
+    assert.ok(panel.x >= 0 && panel.x + panel.w <= view.layout.w && panel.y >= 0);
+  }
+});

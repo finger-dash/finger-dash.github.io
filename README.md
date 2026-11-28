@@ -188,7 +188,7 @@ tuned on real phones.
 
 ## Training and form
 
-The athlete has seven bars, from 0 to 100 (new athletes start at 20). Each event leans on a main
+The athlete has seven bars, from 0 to 100 (new athletes start at 50). Each event leans on a main
 bar (70%) and a second one (30%); the runner setup shows both.
 
 | Bar | Main bar of |
@@ -201,13 +201,21 @@ bar (70%) and a second one (30%); the runner setup shows both.
 | Balance | Diving, surfing, balance beam |
 | Reflexes | Boxing, table tennis, fencing |
 
-The resulting form changes the strength of the rivals (from 8% stronger with empty bars to 12%
+**An event is locked while either of its two bars is below 50.** Its card shows a padlock and the
+missing bars; choosing it explains what it needs and leads to training. Athletes saved before this
+rule had their lower bars raised to 50 once.
+
+The resulting form changes the strength of the rivals (from 10% stronger with empty bars to 10%
 weaker with full ones) and, in most events, how forgiving the controls are. It does not change the
 player's own marks. Tables live in `career.js`.
 
-Training is free and unlimited: run, jump rope, lift weights, box jumps, target shooting, yoga,
-reaction ball, eat and rest. **Doping** fills one random bar and takes 10 points from every other.
-Bars and medals are stored in the browser (`localStorage`).
+Training is free: run, jump rope, lift weights, box jumps, target shooting, yoga, juggling, eat
+and rest. **Doping** fills one random bar and takes 5 points from every other. After any session
+the athlete rests for **1 hour**: a see-through window with a countdown covers the buttons. A
+session that changes nothing (the bar is already full) needs no rest.
+
+Bars, medals and the time of the last session are stored in the browser (`localStorage`):
+clearing it also loses the progress. The rest relies on the clock of the device.
 
 ## Screens
 
@@ -232,8 +240,9 @@ An event screen returns `{ lock, start, update, draw, key, click }` and optional
 
 ## Sound
 
-All sound is 8-bit and starts with the first tap, click or key press, because browsers do not
-allow it earlier.
+All sound is 8-bit. The game asks for it as soon as the page loads. Browsers that do not allow
+sound before a gesture (the usual case on phones) show **Tap to start** over the title; that first
+tap, click or key press only starts the sound.
 
 - The menu music starts and, 1 s later, an announcer shouts "Finger Podium!" while the music
   goes down to make room. The stadium cheers 1.5 s after the name, over the music turned

@@ -31,7 +31,15 @@
     };
   }
 
-  const api = { compute, isPhone, LANDSCAPE };
+  // The button at the top left of the menus, and how it and the in-game MENU look.
+  const backBox = ({ portrait, top }) => ({ x: 4, y: portrait ? top + 3 : 4, w: 54, h: 20 });
+  function drawBack({ rect, text }, b, label = '< BACK') {
+    rect(b.x, b.y, b.w, b.h, '#ffffff');
+    rect(b.x + 1, b.y + 1, b.w - 2, b.h - 2, '#3a3a68');
+    text(label, b.x + b.w / 2, b.y + Math.floor((b.h - 10) / 2), '#fff', 2, 'center');
+  }
+
+  const api = { backBox, drawBack, compute, isPhone, LANDSCAPE };
   if (typeof module !== 'undefined') module.exports = api;
   else root.Layout = api;
 })(this);

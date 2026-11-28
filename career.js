@@ -12,7 +12,10 @@
     { id: 'reflexes', name: 'REFLEXES' },
   ];
   const MAX = 100;
-  const START = 20;        // every bar of a new athlete
+  const START = 50;        // every bar of a new athlete
+  const MIN = 50;          // both bars of an event need this much to enter it
+  const COOLDOWN = 60 * 60 * 1000; // ms of rest after a training session
+  const VERSION = 2;       // of the saved data
   const MAIN_SHARE = 0.7;  // weight of the main bar of an event; the other has the rest
 
   // Event: [short name, main bar, second bar].
@@ -51,10 +54,10 @@
     { id: 'boxJumps', name: 'BOX JUMPS', gain: { jump: 8, speed: 4 } },
     { id: 'target', name: 'TARGET SHOOTING', gain: { aim: 10 } },
     { id: 'yoga', name: 'YOGA', gain: { balance: 10, aim: 3 } },
-    { id: 'drills', name: 'REACTION BALL', gain: { reflexes: 10 } },
+    { id: 'juggle', name: 'JUGGLING', gain: { reflexes: 10 } },
     { id: 'eat', name: 'EAT', gain: { strength: 5, stamina: 5 } },
     { id: 'rest', name: 'REST', gain: { reflexes: 5, balance: 4, stamina: 3 } },
-    { id: 'doping', name: 'DOPING', risky: true, others: -10 },
+    { id: 'doping', name: 'DOPING', risky: true, others: -5 },
   ];
 
   const MEDALS = ['bronze', 'silver', 'gold']; // worst to best
@@ -67,17 +70,28 @@
     for (const { id } of STATS) {
       const v = data.stats && data.stats[id];
       stats[id] = Number.isFinite(v) ? clamp(v) : START;
+      // Athletes saved before events had requirements started lower: raise them.
+      if (data.version !== VERSION) stats[id] = Math.max(stats[id], START);
     }
     for (const id of Object.keys(EVENTS)) {
       if (data.medals && MEDALS.includes(data.medals[id])) medals[id] = data.medals[id];
     }
-    return { stats, medals };
+    const trainedAt = Number.isFinite(data.trainedAt) ? data.trainedAt : 0;
+    return { version: VERSION, stats, medals, trainedAt };
   }
 
-  // Does an action. Returns {stat: change} with what actually moved.
-  function train(career, id, rng = Math.random) {
+  // ms left before the next session; 0 when the athlete is ready. Never longer than
+  // one rest, even if the clock of the device went back.
+  function wait(career, now = Date.now()) {
+    if (!career.trainedAt) return 0;
+    return Math.max(0, Math.min(COOLDOWN, career.trainedAt + COOLDOWN - now));
+  }
+
+  // Does an action. Returns {stat: change} with what actually moved, or null while
+  // the athlete rests. A session that changes nothing needs no rest.
+  function train(career, id, rng = Math.random, now = Date.now()) {
     const action = ACTIONS.find((a) => a.id === id);
-    if (!action) return null;
+    if (!action || wait(career, now)) return null;
     let gain = action.gain;
     if (action.risky) {
       const lucky = STATS[Math.min(STATS.length - 1, Math.floor(rng() * STATS.length))].id;
@@ -90,6 +104,7 @@
       career.stats[stat] = clamp(before + amount);
       if (career.stats[stat] !== before) changes[stat] = career.stats[stat] - before;
     }
+    if (Object.keys(changes).length) career.trainedAt = now;
     return changes;
   }
 
@@ -106,11 +121,14 @@
   const form = (career, event) =>
     needs(career, event).reduce((sum, n) => sum + (n.value / MAX) * n.share, 0);
 
+  // The bars still too low to enter an event.
+  const missing = (career, event) => needs(career, event).filter((n) => n.value < MIN);
+
   // What the form does to a competition: a factor for the strength of the rivals
-  // and one for how forgiving the controls are. Both are 1 at a form of 0.4.
+  // and one for how forgiving the controls are. Both are 1 for a new athlete.
   function edge(career, event) {
     const f = form(career, event);
-    return { rivals: 1.08 - 0.2 * f, ease: 0.8 + 0.5 * f };
+    return { rivals: 1.1 - 0.2 * f, ease: 0.75 + 0.5 * f };
   }
 
   // Keeps the best medal of each event. True when this one improves it.
@@ -138,8 +156,8 @@
   }
 
   const api = {
-    STATS, MAX, START, EVENTS, ACTIONS, total,
-    create, train, needs, form, edge, award, count, champion, forPlace, forDuel,
+    STATS, MAX, START, MIN, COOLDOWN, EVENTS, ACTIONS, total,
+    create, wait, train, needs, missing, form, edge, award, count, champion, forPlace, forDuel,
   };
   if (typeof module !== 'undefined') module.exports = api;
   else root.Career = api;

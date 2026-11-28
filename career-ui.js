@@ -3,7 +3,7 @@
 (function (root) {
   'use strict';
 
-  const ACTION_TIME = 1100; // ms an exercise lasts; no other can start meanwhile
+  const ACTION_TIME = 4000; // ms an exercise is shown
   const COLORS = {
     speed: '#74acdf', strength: '#e8505b', jump: '#5be37d', stamina: '#f9d56e',
     aim: '#f39c4a', balance: '#b58cf0', reflexes: '#6fe0d0',
@@ -12,6 +12,12 @@
   const SIDE = Math.PI / 2;
 
   const box = (x, y, w, h) => ({ x, y, w, h });
+  const Back = typeof module !== 'undefined' ? require('./layout.js') : root.Layout;
+  // Minutes and seconds, rounded up so that it never shows 0:00 while waiting.
+  const clock = (ms) => {
+    const s = Math.ceil(ms / 1000);
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  };
   const inside = (b, x, y) => x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h;
 
   // A medal with its ribbon, 11x15 around (cx, top).
@@ -27,16 +33,16 @@
 
   // Hit boxes of the athlete menus.
   function boxes({ w: W, h: H, portrait, top, bottom }) {
-    const back = box(4, portrait ? top + 3 : 4, 30, 13);
-    const title = { x: portrait ? W / 2 + 14 : W / 2, y: portrait ? top + 7 : 6 };
+    const back = Back.backBox({ portrait, top });
+    const title = { x: portrait ? (W + back.x + back.w) / 2 : W / 2, y: portrait ? top + 11 : 9 };
     if (!portrait) {
       return {
         back, title,
-        stage: box(10, 20, 108, 82),
+        stage: box(10, 26, 108, 76),
         bars: { x: 10, y: 107, w: 108, step: 9 },
-        action: (i) => box(126 + (i % 2) * 94, 20 + Math.floor(i / 2) * 27, 90, 24),
+        action: (i) => box(126 + (i % 2) * 94, 26 + Math.floor(i / 2) * 26, 90, 23),
         other: box(126, 158, 184, 14),
-        stat: (i) => box(10, 20 + i * 19, W - 20, 18),
+        stat: (i) => box(10, 26 + i * 18, W - 20, 17),
         link: box(100, 158, 120, 14),
       };
     }
@@ -44,7 +50,7 @@
     const actions = link.y - 5 * 23 - 4;
     const step = 10;
     const bars = { x: 8, y: actions - 7 * step - 6, w: W - 16, step };
-    const first = top + 21;
+    const first = top + 27;
     const row = Math.floor((link.y - first - 4) / 7);
     return {
       back, title,
@@ -76,7 +82,7 @@
     function header(title) {
       const b = layout();
       background();
-      button(b.back, 'BACK', '#2b2b4a', '#fff');
+      Back.drawBack(view, b.back);
       text(title, b.title.x, b.title.y, '#f9d56e', view.layout.portrait ? 1 : 2, 'center');
     }
     function bar(x, y, w, id, tall = 5) {
@@ -84,10 +90,11 @@
       rect(x, y, w, tall, '#05050f');
       rect(x, y, Math.round((w * value) / Career.MAX), tall, COLORS[id]);
       for (let i = 1; i < 5; i++) rect(x + Math.round((w * i) / 5), y, 1, tall, '#14142a');
+      // What the events ask for.
+      rect(x + Math.round((w * Career.MIN) / Career.MAX), y - 1, 1, tall + 2, '#ffffff');
     }
 
     function train(id, now) {
-      if (busy && now - busy.since < ACTION_TIME) return null;
       const changes = Career.train(store.career, id);
       if (!changes) return null;
       busy = { id, since: now, changes };
@@ -96,6 +103,20 @@
     }
 
     // ---------- Training room ----------
+
+    // A round target on a stand, with the holes of the shots so far.
+    function target(cx, floor, cy, shots) {
+      rect(cx - 1, cy, 3, floor - cy, '#a9743f');
+      for (const [r, color] of [[12, '#10101c'], [11, '#f4f4f4'], [8, '#e8505b'], [5, '#f4f4f4'], [2.5, '#e8505b']]) {
+        for (let v = -r; v < r; v++) {
+          const half = Math.round(Math.sqrt(r * r - (v + 0.5) ** 2));
+          rect(cx - half, Math.round(cy) + v, half * 2, 1, color);
+        }
+      }
+      for (const [dx, dy] of [[1, -2], [-4, 3], [3, 4], [-1, 0]].slice(0, shots)) {
+        rect(cx + dx, Math.round(cy) + dy, 2, 2, '#10101c');
+      }
+    }
 
     // The athlete doing the exercise, standing when there is none.
     function exercise(b, now) {
@@ -124,25 +145,27 @@
           rect(x + a * 30 * scale, ry, 2, 2, '#f4f4f4');
         }
       } else if (doing === 'weights') {
-        const up = 0.5 - 0.5 * Math.cos(t * 6);
-        move = kinds.keeper(0, 1, t);
-        const lift = y - (40 + up * 42) * scale;
-        rect(x - 30 * scale, lift, 60 * scale, 2, '#c9d1dc');
-        for (const side of [-1, 1]) rect(x + side * 30 * scale - 3, lift - 8, 6, 18, '#e8505b');
+        // Down, up, press the bar overhead and bring it back: one rep every 2 s.
+        const p = ((now - busy.since) / 2000) % 1;
+        const ramp = (from, to) => Math.max(0, Math.min(1, (p - from) / (to - from)));
+        const squat = ramp(0, 0.2) - ramp(0.2, 0.4);
+        const press = ramp(0.42, 0.62) - ramp(0.82, 1);
+        move = kinds.press(squat, press); yaw = Math.PI - 0.35;
+        move.face = press > 0.5 ? 'strain' : null;
       } else if (doing === 'boxJumps') {
         const p = (t * 1.6) % 1, hop = Math.sin(Math.PI * p);
         rect(cx + 6, floor - 18 * scale, 28 * scale, 18 * scale, '#a9743f');
         move = kinds.climb(p * 2); x = cx - 24 * scale + p * 42 * scale; y = floor - hop * 30 * scale; yaw = SIDE;
       } else if (doing === 'target') {
-        move = kinds.shoot(0.3, (t * 2) % 1 < 0.2 ? 1 : 0); x = cx - 22; yaw = SIDE;
-        for (const [r, color] of [[10, '#f4f4f4'], [7, '#e8505b'], [4, '#f4f4f4'], [2, '#e8505b']]) {
-          rect(s.x + s.w - 16 - r, floor - 50 * scale - r, r * 2, r * 2, color);
-        }
+        const p = ((now - busy.since) / 1000) % 1; // one shot a second
+        const kick = p > 0.55 && p < 0.72 ? 1 - (p - 0.55) / 0.34 : 0;
+        move = kinds.rifle(kick); yaw = SIDE; x = s.x + s.w * 0.34;
+        target(s.x + s.w - 14, floor, floor - 52 * scale, Math.floor((now - busy.since) / 1000 + 0.45));
       } else if (doing === 'yoga') {
-        move = kinds.balance(Math.sin(t * 2) * 0.12, 'up', 1);
-      } else if (doing === 'drills') {
-        move = kinds.keeper(0.3 + 0.2 * Math.sin(t * 9), Math.sin(t * 5) > 0 ? 1 : -1, t);
-        rect(cx + Math.sin(t * 7) * 36, floor - 40 * scale + Math.cos(t * 11) * 26 * scale, 5, 5, '#f39c4a');
+        rect(cx - 30 * scale, floor - 3, 60 * scale, 3, '#7a4bb0');
+        move = kinds.lotus(Math.sin(t * 2)); y = floor - 2;
+      } else if (doing === 'juggle') {
+        move = kinds.juggle((now - busy.since) / 520);
       } else if (doing === 'eat') {
         move = kinds.shoot(0.9, 0); yaw = SIDE; x = cx - 12;
         move.props = [];
@@ -164,7 +187,7 @@
           rect(cx + Math.cos(i * 2.4 + t * 4) * (20 + (i % 5) * 7), floor - 30 * scale + Math.sin(i * 1.7 + t * 5) * 30 * scale, 2, 2, '#b58cf0');
         }
       }
-      avatar.draw(ctx, x, y, scale, look(), { move }, yaw);
+      avatar.draw(ctx, x, y, scale, move.face ? { ...look(), face: move.face } : look(), { move }, yaw);
       ctx.restore();
 
       // What the exercise did.
@@ -190,17 +213,36 @@
         bar(b.bars.x + 38, y, b.bars.w - 56, stat.id);
         text(`${store.career.stats[stat.id]}`, b.bars.x + b.bars.w, y, '#fff', 1, 'right');
       });
-      const wait = busy && now - busy.since < ACTION_TIME;
+      const wait = Career.wait(store.career);
       ACTIONS.forEach((a, i) => {
         const c = b.action(i);
-        if (!touch && i === focus) rect(c.x - 1, c.y - 1, c.w + 2, c.h + 2, '#ffffff');
-        rect(c.x, c.y, c.w, c.h, a.risky ? '#5a2b6e' : wait ? '#24304a' : '#2b4a78');
+        if (!touch && !wait && i === focus) rect(c.x - 1, c.y - 1, c.w + 2, c.h + 2, '#ffffff');
+        rect(c.x, c.y, c.w, c.h, a.risky ? '#5a2b6e' : '#2b4a78');
         const gives = a.risky ? 'ONE FULL - REST DOWN'
           : Object.keys(a.gain).map((id) => id.slice(0, 3).toUpperCase()).join(' ');
         text(a.name, c.x + c.w / 2, c.y + c.h / 2 - 7, '#fff', 1, 'center');
         text(gives, c.x + c.w / 2, c.y + c.h / 2 + 2, a.risky ? '#f9d56e' : '#74acdf', 1, 'center');
       });
+      if (wait) resting(wait);
       button(b.other, 'SEE MY ATHLETE', '#f9d56e');
+    }
+
+    // A see-through window over the buttons until the next session.
+    function resting(left) {
+      const b = layout();
+      const first = b.action(0), last = b.action(ACTIONS.length - 1);
+      const area = box(first.x - 2, first.y - 2, last.x + last.w - first.x + 4, last.y + last.h - first.y + 4);
+      ctx.globalAlpha = 0.82;
+      rect(area.x, area.y, area.w, area.h, '#05050f');
+      ctx.globalAlpha = 1;
+      for (const [x, y, w, h] of [[0, 0, area.w, 1], [0, area.h - 1, area.w, 1], [0, 0, 1, area.h], [area.w - 1, 0, 1, area.h]]) {
+        rect(area.x + x, area.y + y, w, h, '#f9d56e');
+      }
+      const cx = area.x + area.w / 2, cy = Math.round(area.y + area.h / 2);
+      text('RESTING', cx, cy - 36, '#f9d56e', 2, 'center');
+      text('YOU HAVE TO WAIT 1 HOUR', cx, cy - 18, '#fff', 1, 'center');
+      text('TO TRAIN AGAIN', cx, cy - 10, '#fff', 1, 'center');
+      text(clock(left), cx, cy + 4, '#5be37d', 4, 'center');
     }
 
     // ---------- Athlete ----------
@@ -220,10 +262,11 @@
         // The events this bar matters most to, gold ones lit.
         let x = r.x + 4, y = r.y + (portrait ? 20 : 11);
         for (const [id, [short]] of helps) {
+          const locked = Career.missing(career, id).length > 0;
           const wide = short.length * 4 + 5;
           if (x + wide > r.x + r.w - 2) { x = r.x + 4; y += 8; }
           if (y + 5 > r.y + r.h) break;
-          text(short, x, y, MEDAL_COLORS[career.medals[id]] || '#778');
+          text(short, x, y, locked ? '#a85060' : MEDAL_COLORS[career.medals[id]] || '#bbc');
           x += wide;
         }
       });
@@ -276,7 +319,8 @@
       const b = layout();
       if (inside(b.back, x, y)) return true;
       if (screen === 'athlete') return inside(b.link, x, y);
-      return screen === 'training' && (inside(b.other, x, y) || ACTIONS.some((_, i) => inside(b.action(i), x, y)));
+      return screen === 'training' && (inside(b.other, x, y) ||
+        (!Career.wait(store.career) && ACTIONS.some((_, i) => inside(b.action(i), x, y))));
     };
 
     function draw(screen, now, touch, art) {
