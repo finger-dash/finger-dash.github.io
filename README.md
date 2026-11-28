@@ -5,6 +5,16 @@ archery, boxing and weightlifting) controlled
 with a laptop trackpad or a phone touch screen. Vanilla JavaScript and Canvas 2D. No dependencies,
 no build step.
 
+## The start
+
+The 400 m hurdles and every long jump attempt begin with a starter: "On your marks", "Set" and,
+after a random wait of 1 to 2 s, "Go!", said aloud and written on screen. Power only counts from
+the "go".
+
+Swiping or jumping before it is a false start, signalled with two beeps (a swipe in the first
+0.4 s is forgiven). The first one repeats the start. The second one disqualifies the runner in the
+hurdles and, in the long jump, makes that attempt a foul.
+
 ## 400 m hurdles rules
 
 - One lap, six lanes, ten hurdles (first at 45 m, then every 35 m).
@@ -151,8 +161,8 @@ allow it earlier.
 - Sound stops while the page is hidden. There is no mute button yet; use the volume of the
   device. On iPhone the silent switch may mute it.
 
-The music (an original tune) is generated in the browser by `synth.js`. The other sounds are
-stored in `sounds.js`.
+The music (an original tune) and the false start beeps are generated in the browser by
+`synth.js`. The other sounds are stored in `sounds.js`.
 
 ### Credits
 
@@ -160,7 +170,7 @@ stored in `sounds.js`.
 |---|---|---|
 | Cheer | [19 Football Crowd - Reaction To Goal](https://freesound.org/s/528799/) by D.jones | CC0; trimmed to seconds 4-8, mono, filtered, limited, faded, 8-bit |
 | Boo | [crowd booing](https://freesound.org/s/264378/) by HowardV | CC0; trimmed to seconds 0-4, same processing |
-| Announcer | "awb" voice of [CMU Flite](https://github.com/festvox/flite) | Synthesized, then stretched, re-pitched and given echoes |
+| Announcer and starter | "awb" voice of [CMU Flite](https://github.com/festvox/flite) | Synthesized, then stretched, re-pitched and given echoes |
 
 ## Runner setup
 
@@ -176,7 +186,7 @@ stored in `sounds.js`.
 
 | Device | Orientation |
 |---|---|
-| Phone | Upright, full screen with no letterboxing (sideways also works, in 16:9) |
+| Phone | Upright, full screen with no letterboxing and the camera close to the athlete (sideways also works, in 16:9) |
 | Tablet | Landscape; the race pauses while held upright |
 
 | Action | Touch |
@@ -270,6 +280,7 @@ Planned features are listed in [ROADMAP.md](ROADMAP.md).
 | `moves.js` | Movements of the athlete on the setup screen (testable) |
 | `font.js` | Bitmap font and name sanitizing |
 | `track.js` | Oval geometry and coordinate conversions (testable) |
+| `starter.js` | Starter's calls and false starts (testable) |
 | `race.js` | Hurdles simulation, rival AI and standings (testable) |
 | `longjump.js` | Long jump rules, rivals and standings (testable) |
 | `longjump-ui.js` | Long jump input, HUD, angle meter and results |
@@ -286,7 +297,7 @@ Planned features are listed in [ROADMAP.md](ROADMAP.md).
 | `fieldui.js` | HUD and results shared by the events |
 | `render.js` | Chase camera, ground, stands, hurdles and sprites |
 | `synth.js` | Menu music and decoding of the recorded sounds (testable) |
-| `sounds.js` | Announcer, cheer and boo recordings, with their credits |
-| `audio.js` | Sound playback: unlocking, menu music and crowd reactions (testable) |
+| `sounds.js` | Announcer, starter, cheer and boo recordings, with their credits |
+| `audio.js` | Sound playback: unlocking, menu music, starter and crowd reactions (testable) |
 | `game.js` | Input wiring, state machine, HUD and main loop |
 | `*.test.js` | Unit tests |

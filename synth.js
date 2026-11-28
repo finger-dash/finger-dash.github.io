@@ -128,8 +128,24 @@
     return { rate: RATE, samples: crush(out) };
   }
 
-  // 'music', 'voice', 'cheer' or 'boo' -> { rate, samples }
-  const render = (name) => (name === 'music' ? music() : recording(name));
+  // The false start signal: two low, harsh beeps.
+  function foul() {
+    const beep = 0.16, gap = 0.08;
+    const out = new Float32Array(Math.round((2 * beep + 2 * gap) * RATE));
+    for (const from of [0, beep + gap]) {
+      for (let i = 0; i < Math.round(beep * RATE); i++) {
+        const t = i / RATE;
+        const v = 0.6 * WAVES.square((220 * t) % 1) + 0.4 * WAVES.square((233 * t) % 1);
+        out[Math.round(from * RATE) + i] = v * Math.max(0, Math.min(1, t / 0.005, (beep - t) / 0.01));
+      }
+    }
+    return { rate: RATE, samples: crush(out, 0.8, 1) };
+  }
+
+  // 'music', 'foul', or a recording ('voice', 'cheer', 'boo', 'marks', 'set', 'go')
+  // -> { rate, samples }
+  const MADE = { music, foul };
+  const render = (name) => (MADE[name] ? MADE[name]() : recording(name));
 
   const api = { RATE, BPM, MELODY, CHORDS, render, frequency };
   if (typeof module !== 'undefined') module.exports = api;

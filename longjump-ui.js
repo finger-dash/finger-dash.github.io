@@ -7,6 +7,7 @@
   const LANE_SPEED = 15;   // m/s with a full power bar
   const TAP_GUARD = 0.15;  // s after the take-off in which a touch does not set the angle
   const LANDING_BUZZ = 700; // ms the phone vibrates on landing
+  const GO_SHOWN = 0.8;     // seconds "GO!" stays on screen
 
   // shell: shared pieces of the game (HUD helpers and navigation).
   function create({ view, detector, mobile, shell }) {
@@ -26,7 +27,7 @@
     function start(profile) {
       contest = LongJump.createContest({
         difficulty: profile.difficulty, country: profile.country, playerName: profile.name.trim(),
-        tapAngle: mobile.isTouch(),
+        tapAngle: mobile.isTouch(), starter: true,
       });
       newAttempt();
     }
@@ -44,7 +45,13 @@
 
     // Upward flick or Space. After a flick, a tap or a click sets the angle.
     function flick(source) {
-      if (LongJump.takeOff(contest)) held = source === 'key';
+      if (contest.phase === 'start') jumpTheGun();
+      else if (LongJump.takeOff(contest)) held = source === 'key';
+    }
+
+    // Running or jumping before the "go".
+    function jumpTheGun() {
+      if (LongJump.jumpTheGun(contest)) shell.call('foul');
     }
 
     function lockAngle() {
@@ -76,7 +83,7 @@
       }
       if (e.code === 'Space') {
         e.preventDefault();
-        if (contest.phase === 'run') flick('key');
+        if (contest.phase === 'run' || contest.phase === 'start') flick('key');
         else if (contest.phase === 'angle') lockAngle();
         else LongJump.stretch(contest);
       } else if (e.code === 'ArrowDown') {
@@ -104,12 +111,18 @@
 
     function update(dt, now) {
       const running = contest.phase === 'run';
+      if (contest.phase === 'start' && detector.strokes > 0) {
+        jumpTheGun();
+        newAttempt(); // forgiven or not, it gives no head start
+      }
       detector.update(now, !running);
       // A new downward swipe in the air stretches the legs.
       if (detector.strokes > seenStrokes) LongJump.stretch(contest);
       seenStrokes = detector.strokes;
       const before = contest.phase;
       LongJump.step(contest, dt, detector.charge * LANE_SPEED);
+      if (contest.call) shell.call(contest.call);
+      if (contest.call === 'go') newAttempt(); // no head start
 
       if (before === 'flight' && contest.phase === 'landed') mobile.buzz(LANDING_BUZZ);
       if (before !== 'landed' && contest.phase === 'landed') {
@@ -166,17 +179,23 @@
       text(`${Math.round(contest.angle)}`, ox + radius / 2, oy + 6, '#fff', 3, 'center');
     }
 
+    function howTo() {
+      const { w: W, horizon } = view.layout;
+      const y = horizon - 4;
+      const lines = mobile.isTouch()
+        ? ['SWIPE DOWN TO RUN', 'AT THE BOARD: FLICK UP', 'THEN TAP TO SET THE ANGLE']
+        : ['SWIPE DOWN TO RUN', 'AT THE BOARD: FLICK UP', 'CLICK TO SET THE ANGLE'];
+      shade(W / 2 - 66, y - 4, 132, 31);
+      lines.forEach((line, i) => text(line, W / 2, y + i * 9, '#fff', 1, 'center'));
+    }
+
     function runHints() {
       const { w: W, horizon } = view.layout;
       const j = contest.jumper;
       const left = LongJump.BOARD - j.s;
       const y = horizon - 28;
-      if (j.speed < 0.5 && j.s < 2) {
-        const lines = mobile.isTouch()
-          ? ['SWIPE DOWN TO RUN', 'AT THE BOARD: FLICK UP', 'THEN TAP TO SET THE ANGLE']
-          : ['SWIPE DOWN TO RUN', 'AT THE BOARD: FLICK UP', 'CLICK TO SET THE ANGLE'];
-        shade(W / 2 - 66, y - 12, 132, 31);
-        lines.forEach((line, i) => text(line, W / 2, y - 8 + i * 9, '#fff', 1, 'center'));
+      if (contest.time < GO_SHOWN) {
+        text('GO!', W / 2, horizon - 32, '#5be37d', 5, 'center');
       } else if (contest.difficulty !== 'hard' && left < j.speed * 0.3 && left > 0.1) {
         text('JUMP!', W / 2, y, '#f9d56e', 3, 'center');
       } else if (left < 15 && left >= 0) {
@@ -269,7 +288,10 @@
       }
       shell.power();
 
-      if (contest.phase === 'run') runHints();
+      if (contest.phase === 'start') {
+        shell.startBanner(contest.start, 'IS A FOUL');
+        howTo();
+      } else if (contest.phase === 'run') runHints();
       else if (contest.phase === 'angle') {
         angleMeter();
         const hint = held ? 'RELEASE SPACE!' : mobile.isTouch() ? 'TAP TO SET ANGLE' : 'CLICK TO SET ANGLE';

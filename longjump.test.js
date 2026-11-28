@@ -131,3 +131,30 @@ test('with a tap to set the angle, the meter waits for the finger', () => {
   while (c.time < LongJump.TAP_DELAY + 0.5) LongJump.step(c, DT, 0);
   assert.ok(Math.abs(c.angle - c.level.sweep * 0.5) < 1, String(c.angle));
 });
+
+test('with a starter, the run-up begins at the go', () => {
+  const c = contest({ starter: true });
+  assert.strictEqual(c.phase, 'start');
+  assert.ok(!LongJump.takeOff(c));
+  const heard = [];
+  for (let i = 0; i < 600 && c.phase === 'start'; i++) {
+    LongJump.step(c, 0.01, 12);
+    if (c.call) heard.push(c.call);
+  }
+  assert.deepStrictEqual(heard, ['marks', 'set', 'go']);
+  assert.deepStrictEqual([c.phase, c.jumper.s, c.jumper.speed], ['run', 0, 0]);
+});
+
+test('two false starts make the attempt a foul, and the next one starts clean', () => {
+  const c = contest({ starter: true });
+  const wait = (s) => { for (let i = 0; i < s * 100; i++) LongJump.step(c, 0.01, 0); };
+  wait(1);
+  assert.strictEqual(LongJump.jumpTheGun(c), 'warning');
+  assert.strictEqual(c.phase, 'start');
+  wait(3);
+  assert.strictEqual(LongJump.jumpTheGun(c), 'out');
+  assert.deepStrictEqual([c.phase, c.result.mark, c.result.reason], ['landed', null, 'FALSE START']);
+  assert.strictEqual(c.player.marks[0], null);
+  assert.ok(LongJump.nextAttempt(c));
+  assert.deepStrictEqual([c.phase, c.start.faults], ['start', 0]);
+});

@@ -9,7 +9,7 @@
   const art = Art.createArt(view, Avatar.createAvatar(Countries, Font, 4), Countries);
   const home = Home.createHome(view, art);
 
-  let state, race, countdown, resultsAt, jumps, lastSource;
+  let state, race, starter, resultsAt, jumps, lastSource;
   let eventId = 'hurdles400';
   let debug = false;
   let best = null;
@@ -41,6 +41,7 @@
   // pause (forget held inputs). outcome says whether the final table shows a win or a loss.
   const shell = {
     power: drawPower, panel, button: drawButton, resultsBoxes, quitBox, over,
+    startBanner: drawStart, call: (name) => sound.call(name),
     save: (key, value) => save(key, value),
     exit: openMenu,
     restart: start,
@@ -67,7 +68,7 @@
   let paused = false, pausedAt = 0;
 
   // A competition is on and its results are not up yet.
-  const inPlay = () => state === 'countdown' || state === 'running' ||
+  const inPlay = () => state === 'start' || state === 'running' ||
     (state === 'event' && !active.resultsShown());
 
   function pause() {
@@ -119,11 +120,12 @@
     race = Race.createRace({
       difficulty: profile.difficulty, country: profile.country, playerName: profile.name.trim(),
     });
-    countdown = 0; jumps = 0; lastSource = '-';
+    starter = Starter.create();
+    jumps = 0; lastSource = '-';
   }
 
-  // Screens: title -> events -> menu (runner setup) -> countdown -> running -> finished.
-  const racing = () => state === 'countdown' || state === 'running' || state === 'finished';
+  // Screens: title -> events -> menu (runner setup) -> start -> running -> finished.
+  const racing = () => state === 'running' || state === 'finished';
   const homeScreen = () => (state === 'title' ? home.title : state === 'events' ? home.events : null);
 
   function show(screen) {
@@ -158,8 +160,7 @@
       active.start(profile);
       state = 'event';
     } else {
-      state = 'countdown';
-      countdown = 3;
+      state = 'start';
     }
     canvas.style.cursor = '';
     mobile.closeName();
@@ -186,7 +187,25 @@
   }
 
   function jump() {
-    if (state === 'running' && Race.jump(race.player)) jumps++;
+    if (state === 'start') jumpTheGun();
+    else if (state === 'running' && Race.jump(race.player)) jumps++;
+  }
+
+  // Running or jumping before the "go": a warning first, then disqualification.
+  function jumpTheGun() {
+    const result = Starter.jumpTheGun(starter);
+    if (!result) return;
+    sound.call('foul');
+    if (result === 'out') {
+      race.disqualified = true;
+      finish(performance.now());
+    }
+  }
+
+  function finish(now) {
+    state = 'finished';
+    resultsAt = now;
+    if (document.pointerLockElement) document.exitPointerLock(); // free the cursor
   }
 
   // ---------- Input ----------
@@ -378,27 +397,32 @@
       active.update(dt, now);
       return;
     }
-    detector.update(now, state === 'running' && race.player.jumpT >= 0);
-
-    if (state === 'countdown') {
-      countdown -= dt;
-      if (countdown <= 0) {
+    if (state === 'start') {
+      if (detector.strokes > 0) {
+        jumpTheGun();
+        detector.reset(); // forgiven or not, it gives no head start
+      }
+      if (state !== 'start') return;
+      detector.update(now, false);
+      const call = Starter.step(starter, dt);
+      if (call) sound.call(call);
+      if (call === 'go') {
         state = 'running';
         detector.reset(); // no head start
       }
       return;
     }
+    detector.update(now, state === 'running' && race.player.jumpT >= 0);
     if (!racing()) return;
 
     // The simulation keeps going behind the results so late rivals can finish.
     const knocked = race.player.knocked.size;
-    Race.step(race, dt, detector.charge * Race.MAX_SPEED);
+    // A disqualified runner stays at the start while the others run.
+    Race.step(race, dt, race.disqualified ? 0 : detector.charge * Race.MAX_SPEED);
     if (race.player.knocked.size > knocked) mobile.buzz(HURDLE_BUZZ);
 
     if (state === 'running' && race.over) {
-      state = 'finished';
-      resultsAt = now;
-      if (document.pointerLockElement) document.exitPointerLock(); // free the cursor
+      finish(now);
       const t = race.player.finishTime;
       if (t !== null && (!best || t < best)) {
         best = t;
@@ -472,7 +496,9 @@
     const W = view.W;
     panel(box.x, box.y, box.w, box.h);
     const winner = race.winner;
-    text(winner.isPlayer ? 'YOU WIN!' : `${winner.name} WINS!`, W / 2, box.y + 6, '#f9d56e', 3, 'center');
+    // After a disqualification the results come up before anyone has finished.
+    if (race.disqualified) text('DISQUALIFIED', W / 2, box.y + 6, '#e8505b', 3, 'center');
+    else text(winner.isPlayer ? 'YOU WIN!' : `${winner.name} WINS!`, W / 2, box.y + 6, '#f9d56e', 3, 'center');
     const left = box.x + 14, right = box.x + box.w - 14;
     text('POS', left, box.y + 28, '#9ab');
     text('RUNNER', left + 24, box.y + 28, '#9ab');
@@ -485,7 +511,7 @@
       Countries.drawFlag(ctx, r.country, left + 20, y - 1, 10.5, 7);
       text(r.name, left + 34, y, color);
       const result = r.finishTime !== null ? r.finishTime.toFixed(2)
-        : r.isPlayer ? 'DNF' : 'RUNNING';
+        : r.isPlayer ? (race.disqualified ? 'DQ' : 'DNF') : 'RUNNING';
       text(result, right, y, color, 1, 'right');
     });
     const cleared = Race.HURDLES.length - race.player.knocked.size;
@@ -505,21 +531,31 @@
     text(label, b.x + b.w / 2, b.y + Math.floor((b.h - 5) / 2), '#10101c', 1, 'center');
   }
 
+  // The starter's calls, in the middle of the sky.
+  function drawStart(start, penalty) {
+    const banner = Starter.banner(start, penalty);
+    if (!banner) return;
+    const { w: W, horizon } = view.layout;
+    const y = horizon - 34;
+    text(banner.text, W / 2, y, banner.color, banner.size, 'center');
+    if (banner.note) text(banner.note, W / 2, y + 19, '#fff', 1, 'center');
+  }
+
   function drawOverlay() {
     const { w: W, h: H, horizon } = view.layout;
-    const live = state === 'running' || state === 'countdown';
+    const live = state === 'running' || state === 'start';
     if (live && mobile.isTouch()) {
       const quit = quitBox();
       rect(quit.x, quit.y, quit.w, quit.h, '#10101c');
       text('MENU', quit.x + quit.w / 2, quit.y + 4, '#fff', 1, 'center');
-      if (state === 'countdown') {
+      if (state === 'start') {
         rect(W / 2 - 78, horizon - 3, 156, 11, '#10101c');
         text('SWIPE DOWN TO RUN - FLICK UP TO JUMP', W / 2, horizon, '#fff', 1, 'center');
       }
     } else if (live && !locked() && !paused) {
       text('CLICK TO CAPTURE THE POINTER', W / 2, H - 30, '#fff', 1, 'center');
     }
-    if (state === 'countdown') text(Math.ceil(countdown), W / 2, horizon - 32, '#fff', 5, 'center');
+    if (state === 'start') drawStart(starter, 'DISQUALIFIES');
     if (state === 'running' && race.time < 0.8) text('GO!', W / 2, horizon - 32, '#5be37d', 5, 'center');
     if (state === 'finished') drawResults();
   }

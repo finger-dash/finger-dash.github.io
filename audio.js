@@ -19,7 +19,7 @@
     const Context = target.AudioContext || target.webkitAudioContext;
     let context = null, started = false;
     let inMenu = true;
-    let music = null, reaction = null, intro = [];
+    let music = null, reaction = null, calling = null, intro = [];
     let duck = []; // [time, volume] of the music while the intro plays
     const buffers = {};
 
@@ -112,6 +112,7 @@
       inMenu = shown;
       if (!started) return;
       if (shown) {
+        call(null);
         startMusic();
         return;
       }
@@ -130,6 +131,14 @@
       reaction = outcome ? play(outcome === 'win' ? 'cheer' : 'boo', CROWD) : null;
     }
 
+    // The starter: 'marks', 'set', 'go' or 'foul'. Each call cuts off the one before,
+    // and null silences it.
+    function call(name) {
+      if (!started) return;
+      silence(calling);
+      calling = name ? play(name, VOICE) : null;
+    }
+
     // Silence while the page is in the background.
     function hide(hidden) {
       if (!context) return;
@@ -145,7 +154,7 @@
       target.document.addEventListener('visibilitychange', () => hide(target.document.hidden));
     }
 
-    return { unlock, menu, react, hide };
+    return { unlock, menu, react, call, hide };
   }
 
   const api = { createAudio, VOICE_DELAY, AFTER_VOICE, MUSIC_LEAD };

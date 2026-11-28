@@ -1,13 +1,14 @@
 // Long jump simulation: run-up, take-off, angle, flight, landing and standings.
 // No DOM access.
 //
-// Phases of one attempt: run -> angle -> flight -> landed.
+// Phases of one attempt: start (only with a starter) -> run -> angle -> flight -> landed.
 (function (root) {
   'use strict';
 
   const node = typeof require === 'function';
   const Contest = node ? require('./contest.js') : root.Contest;
   const { round } = Contest;
+  const Starter = node ? require('./starter.js') : root.Starter;
 
   const BOARD = 40;             // m from the start of the run-up to the foul line
   const ATTEMPTS = 3;
@@ -36,6 +37,7 @@
 
   function createContest({
     difficulty = 'normal', rng = Math.random, playerName = 'YOU', country = 'ARG', tapAngle = false,
+    starter = false,
   } = {}) {
     const level = DIFFICULTY[difficulty] || DIFFICULTY.normal;
     const athletes = Contest.athletes({
@@ -44,13 +46,18 @@
         (rng() < 0.12 ? null : round((base + (rng() - 0.5) * 0.7) * level.rivals))),
     });
     const angleDelay = tapAngle ? TAP_DELAY : 0;
-    const contest = { difficulty, level, angleDelay, athletes, player: athletes[0], attempt: 0 };
+    const contest = {
+      difficulty, level, angleDelay, athletes, player: athletes[0], attempt: 0,
+      starter: starter ? { rng } : null,
+    };
     startAttempt(contest);
     return contest;
   }
 
   function startAttempt(c) {
-    c.phase = 'run';
+    c.start = c.starter ? Starter.create(c.starter) : null; // false starts count per attempt
+    c.phase = c.start ? 'start' : 'run';
+    c.call = null; // call of the starter to announce in this step
     c.time = 0; // seconds in the current phase
     c.angle = 0;
     c.result = null;
@@ -110,12 +117,25 @@
     return true;
   }
 
+  // The athlete moved before the "go". The second time, the attempt is a foul.
+  // Returns 'warning', 'out' or null.
+  function jumpTheGun(c) {
+    if (c.phase !== 'start') return null;
+    const result = Starter.jumpTheGun(c.start);
+    if (result === 'out') finishAttempt(c, null, 'FALSE START');
+    return result;
+  }
+
   // targetSpeed: what the power bar asks for during the run-up.
   function step(c, dt, targetSpeed) {
     const j = c.jumper;
     c.time += dt;
+    c.call = null;
 
-    if (c.phase === 'run') {
+    if (c.phase === 'start') {
+      c.call = Starter.step(c.start, dt);
+      if (c.call === 'go') setPhase(c, 'run');
+    } else if (c.phase === 'run') {
       const rate = targetSpeed > j.speed ? 3.2 : 2;
       j.speed += (targetSpeed - j.speed) * Math.min(1, rate * dt);
       j.s += j.speed * dt;
@@ -165,7 +185,7 @@
 
   const api = {
     BOARD, ATTEMPTS, TAKEOFF_ZONE, BEST_ANGLE, GOOD_ANGLE, MAX_ANGLE, TAP_DELAY, FLIGHT_TIME, STRETCH_AT, STRETCH_FROM, DIFFICULTY,
-    createContest, step, takeOff, release, stretch, nextAttempt, isOver, best, standings,
+    createContest, step, jumpTheGun, takeOff, release, stretch, nextAttempt, isOver, best, standings,
   };
   if (typeof module !== 'undefined') module.exports = api;
   else root.LongJump = api;

@@ -7,7 +7,7 @@ const { createAudio, VOICE_DELAY, AFTER_VOICE, MUSIC_LEAD } = require('./audio.j
 const seconds = ({ rate, samples }) => samples.length / rate;
 
 test('every sound is audible, in range and in 8 bits', () => {
-  for (const name of ['voice', 'cheer', 'boo', 'music']) {
+  for (const name of ['voice', 'cheer', 'boo', 'music', 'marks', 'set', 'go', 'foul']) {
     const { samples } = Synth.render(name);
     let peak = 0, energy = 0;
     for (const v of samples) {
@@ -63,7 +63,7 @@ function fakeBrowser() {
     }
   }
   const target = { AudioContext, addEventListener: (type, fn) => { listeners[type] = fn; } };
-  const LENGTH = { music: 30, voice: 4, cheer: 5, boo: 6 };
+  const LENGTH = { music: 30, voice: 4, cheer: 5, boo: 6, marks: 7, set: 8, go: 9, foul: 10 };
   const render = (name) => ({ rate: 100, samples: new Float32Array(LENGTH[name] * 100) });
   const sound = createAudio({ Synth: { render }, target });
   const names = (list = played) => list.map((s) =>
@@ -115,4 +115,17 @@ test('the crowd cheers a win, boos a loss and hushes when the table goes', () =>
   sound.react('loss');
   assert.deepStrictEqual(names(played.slice(3)), ['cheer', 'boo']);
   assert.ok(played[3].stopped && !played[4].stopped);
+});
+
+test('each call of the starter cuts off the one before, until the menu silences them', () => {
+  const { played, listeners, sound, names } = fakeBrowser();
+  sound.call('marks'); // nothing before a gesture
+  listeners.keydown();
+  sound.menu(false);
+  sound.call('marks');
+  sound.call('foul');
+  assert.deepStrictEqual(names(played.slice(3)), ['marks', 'foul']);
+  assert.ok(played[3].stopped && !played[4].stopped);
+  sound.menu(true);
+  assert.ok(played[4].stopped);
 });

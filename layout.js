@@ -21,7 +21,7 @@
     const w = 200;
     const h = Math.round((w * height) / width);
     const horizon = Math.round(h * 0.36);
-    const ppm = 33; // pixels per meter at the player's depth
+    const ppm = 58; // pixels per meter at the player's depth: close to the athlete
     return {
       w, h, res: 3, horizon, ppm,
       camH: (h * 0.74 - horizon) / ppm, // keeps the feet at 74% of the height
