@@ -1,0 +1,266 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Finger Podium: static game on S3 + CloudFront, WebSocket server on one small EC2
+  instance reached through the same distribution at /ws.
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  SubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: Public subnet in an availability zone that offers the instance type.
+  CloudFrontPrefixListId:
+    Type: String
+    Description: Id of com.amazonaws.global.cloudfront.origin-facing in this region.
+  InstanceType:
+    Type: String
+    Default: t4g.nano
+    AllowedValues: [t4g.nano, t4g.micro, t4g.small]
+  ImageId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64
+  DomainName:
+    Type: String
+    Default: ''
+    Description: Custom domain for the game (optional).
+  CertificateArn:
+    Type: String
+    Default: ''
+    Description: ACM certificate in us-east-1 for DomainName (optional).
+
+Conditions:
+  HasDomain: !And
+    - !Not [!Equals [!Ref DomainName, '']]
+    - !Not [!Equals [!Ref CertificateArn, '']]
+  IsUsEast1: !Equals [!Ref 'AWS::Region', us-east-1]
+
+Resources:
+  # ---------- Static site ----------
+  SiteBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  # Server builds, read by the instance. Kept apart so CloudFront cannot serve them.
+  ArtifactBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: expire-old-builds
+            Status: Enabled
+            ExpirationInDays: 30
+
+  SiteAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub '${AWS::StackName}-site'
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  SiteBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref SiteBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: cloudfront.amazonaws.com }
+            Action: s3:GetObject
+            Resource: !Sub '${SiteBucket.Arn}/*'
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub 'arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${Distribution}'
+
+  # ---------- Game server ----------
+  ServerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Only CloudFront can reach the game server. No SSH.
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          SourcePrefixListId: !Ref CloudFrontPrefixListId
+
+  ServerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: ec2.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore'
+      Policies:
+        - PolicyName: read-builds
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub '${ArtifactBucket.Arn}/*'
+
+  ServerProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [!Ref ServerRole]
+
+  Server:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      ImageId: !Ref ImageId
+      IamInstanceProfile: !Ref ServerProfile
+      # "standard" caps the cost: no charges for extra CPU credits.
+      CreditSpecification: { CPUCredits: standard }
+      MetadataOptions: { HttpTokens: required }
+      NetworkInterfaces:
+        - DeviceIndex: '0'
+          SubnetId: !Ref SubnetId
+          GroupSet: [!Ref ServerSecurityGroup]
+          AssociatePublicIpAddress: true
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs: { VolumeSize: 8, VolumeType: gp3, Encrypted: true }
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-server'
+      UserData:
+        Fn::Base64: |
+          #!/bin/bash
+          # One-time machine setup. The application is installed by scripts/deploy.sh.
+          set -euxo pipefail
+          # 512 MB is tight for dnf, so add swap first.
+          dd if=/dev/zero of=/swapfile bs=1M count=1024
+          chmod 600 /swapfile
+          mkswap /swapfile
+          swapon /swapfile
+          echo '/swapfile none swap sw 0 0' >> /etc/fstab
+          for attempt in 1 2 3 4 5; do
+            dnf install -y nodejs24 nodejs24-npm && break
+            sleep 15
+          done
+          useradd --system --no-create-home --shell /sbin/nologin fingerpodium
+          mkdir -p /opt/fingerpodium
+          cat > /etc/systemd/system/fingerpodium.service <<'UNIT'
+          [Unit]
+          Description=Finger Podium game server
+          After=network-online.target
+          Wants=network-online.target
+
+          [Service]
+          User=fingerpodium
+          WorkingDirectory=/opt/fingerpodium/current
+          EnvironmentFile=/etc/fingerpodium.env
+          ExecStart=/usr/bin/node-24 server.js
+          Restart=always
+          RestartSec=2
+          NoNewPrivileges=true
+          ProtectSystem=strict
+          ProtectHome=true
+          PrivateTmp=true
+
+          [Install]
+          WantedBy=multi-user.target
+          UNIT
+          systemctl daemon-reload
+          systemctl enable fingerpodium
+
+  # A fixed address, so the CloudFront origin survives instance replacements.
+  ServerAddress:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+
+  ServerAddressAssociation:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      AllocationId: !GetAtt ServerAddress.AllocationId
+      InstanceId: !Ref Server
+
+  # ---------- CDN ----------
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: !Ref 'AWS::StackName'
+        DefaultRootObject: index.html
+        HttpVersion: http2and3
+        PriceClass: PriceClass_All # includes the South American edge locations
+        Aliases: !If [HasDomain, [!Ref DomainName], !Ref 'AWS::NoValue']
+        ViewerCertificate: !If
+          - HasDomain
+          - AcmCertificateArn: !Ref CertificateArn
+            SslSupportMethod: sni-only
+            MinimumProtocolVersion: TLSv1.2_2021
+          - CloudFrontDefaultCertificate: true
+        Origins:
+          - Id: site
+            DomainName: !GetAtt SiteBucket.RegionalDomainName
+            OriginAccessControlId: !GetAtt SiteAccessControl.Id
+            S3OriginConfig: { OriginAccessIdentity: '' }
+          - Id: server
+            # Public DNS name of the Elastic IP: ec2-1-2-3-4.<region>.compute.amazonaws.com
+            DomainName: !Join
+              - ''
+              - - 'ec2-'
+                - !Join ['-', !Split ['.', !GetAtt ServerAddress.PublicIp]]
+                - !If
+                  - IsUsEast1
+                  - '.compute-1.amazonaws.com'
+                  - !Sub '.${AWS::Region}.compute.amazonaws.com'
+            CustomOriginConfig:
+              HTTPPort: 8080
+              OriginProtocolPolicy: http-only
+        DefaultCacheBehavior:
+          TargetOriginId: site
+          ViewerProtocolPolicy: redirect-to-https
+          Compress: true
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6 # CachingOptimized
+        CacheBehaviors:
+          - PathPattern: /ws
+            TargetOriginId: server
+            ViewerProtocolPolicy: https-only
+            AllowedMethods: [GET, HEAD]
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad # CachingDisabled
+            # AllViewer: forwards Origin and the Sec-WebSocket-* headers.
+            OriginRequestPolicyId: 216adef6-5c7f-47e4-b989-5492eafa07d3
+
+Outputs:
+  SiteUrl:
+    Value: !If
+      - HasDomain
+      - !Sub 'https://${DomainName}'
+      - !Sub 'https://${Distribution.DomainName}'
+  CloudFrontDomain:
+    Value: !GetAtt Distribution.DomainName
+  DistributionId:
+    Value: !Ref Distribution
+  SiteBucketName:
+    Value: !Ref SiteBucket
+  ArtifactBucketName:
+    Value: !Ref ArtifactBucket
+  InstanceId:
+    Value: !Ref Server
+  AllowedOrigins:
+    Value: !If
+      - HasDomain
+      - !Sub 'https://${Distribution.DomainName} https://${DomainName}'
+      - !Sub 'https://${Distribution.DomainName}'

@@ -1,0 +1,9 @@
+{
+  "name": "finger-podium-server",
+  "private": true,
+  "version": "0.1.0",
+  "main": "server.js",
+  "engines": { "node": ">=22" },
+  "scripts": { "start": "node server.js" },
+  "dependencies": { "ws": "8.21.3" }
+}

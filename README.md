@@ -1,10 +1,11 @@
-# Finger Dash (PoC)
+# Finger Podium (PoC)
 
-Pixel-art 400 m hurdles race on an oval track, with a chase camera and five rivals,
-controlled with a laptop trackpad or a phone touch screen. Vanilla JavaScript and Canvas 2D. No dependencies,
+Pixel-art Olympic games (400 m hurdles, long jump, shot put,
+archery, boxing and weightlifting) controlled
+with a laptop trackpad or a phone touch screen. Vanilla JavaScript and Canvas 2D. No dependencies,
 no build step.
 
-## Race rules
+## 400 m hurdles rules
 
 - One lap, six lanes, ten hurdles (first at 45 m, then every 35 m).
 - Lanes share the same distance, so everyone starts on the same line.
@@ -13,7 +14,117 @@ no build step.
 - If every rival has finished, you have 25 s left before being marked DNF.
 - Difficulty is chosen in the menu. Hard also hides the `JUMP!` hint.
 
-## Menu
+## Long jump
+
+- Three attempts. The best mark wins; ties are broken by the next best one.
+- Run up for 40 m, take off close to the board, then set the angle (about 22 degrees is best).
+- Stepping over the board is a foul. Distance lost before the board is not recovered.
+- A well-timed second swipe in the air stretches the legs and adds up to 0.5 m. Swipes in the
+  first moments of the flight are ignored, so the finger may move after setting the angle.
+- Level changes rival strength and the angle meter speed. Hard hides the cues.
+
+| Step | Phone | Trackpad | Keyboard |
+|---|---|---|---|
+| Run | Swipe down, alternating fingers | Swipe down repeatedly | Alternate Left / Right |
+| Take off | Flick up and hold | Flick up | Hold Space |
+| Set the angle | Lift the finger | Click | Release Space |
+| Stretch the legs | Swipe down in the air | Swipe down in the air | Down arrow |
+
+## Shot put
+
+- Three attempts, 8 seconds each to spin and throw. The best mark wins.
+- Circles build power; an upward swipe throws. The shot leaves towards wherever the athlete is
+  facing at that moment: swipe while he faces the field. Releasing while turned further than
+  75 / 60 / 45 degrees (easy / normal / hard) sends it out of the field (WRONG WAY).
+- A sideways swipe may leave the 30 degree sector (foul).
+- The yellow arc marks the rival distance to beat.
+
+| Step | Phone | Trackpad | Keyboard |
+|---|---|---|---|
+| Spin | Draw circles with one finger | Draw circles with one finger on the pad | Arrow keys in clockwise order |
+| Throw (facing the field) | Swipe straight up | Swipe straight up | Space |
+
+## Archery
+
+- Six arrows at 70 m. The highest total wins.
+- A full draw is needed: a weak draw drops the arrow, and a very weak one cancels the shot.
+- The wind drags the sight sideways all the time you aim, in gusts: keep correcting. The arrow
+  lands where the sight points when you let go. At least half of the level's wind always blows
+  (up to 3 / 4.5 / 6 m/s on easy / normal / hard, half as much again in gusts). It also makes
+  the sight shudder and rocks the whole view downwind.
+- The sign at the top shows which way the wind blows and how fast (green under 2 m/s, yellow
+  under 4, red from 4), backed up by a flag and streaks on the field.
+- Holding the bow drawn for long makes the aim shake.
+- While aiming only the sight is in view, close to the eye. On release the camera follows the
+  arrow to the target and shows the score.
+
+| Step | Phone | Trackpad / mouse | Keyboard |
+|---|---|---|---|
+| Aim | Move the finger that draws | Move the pointer, no button | Arrow keys |
+| Draw | Touch and pull down | Hold the click and drag back (down) | Hold Space |
+| Shoot | Lift the finger | Release the click | Release Space |
+
+With a mouse it works like a cue: while the string is held, moving sideways still corrects the
+aim, and pushing forward again relaxes the string to cancel the shot.
+
+## Boxing
+
+- One 60 second bout, ending by knockout or on health points.
+- The opponent blocks or slips most punches on guard and answers if you keep hammering him.
+- A flashing glove and `!` announce a punch. It always comes down the middle, so dodging to
+  either side slips it. Dodging leans and ducks your head under the punch while you stay on
+  your spot.
+- A late uppercut stops the opponent's punch.
+- Nobody gets dazed: what a slipped punch costs is stamina. Both boxers spend it to punch,
+  and extra when they miss. A tired opponent heaves, lets his guard sag, defends worse and
+  needs a breath before attacking: that is the time to unload.
+- Dodging when no punch is coming also costs stamina, and a tired boxer cannot dodge.
+
+| Action | Phone | Keyboard | Mouse / trackpad |
+|---|---|---|---|
+| Left / right punch | Tap that half of the screen | A / D | Click that half |
+| Uppercut | Swipe up on that half | Q / E | Drag up |
+| Dodge | Tilt the phone, or swipe sideways | Left / Right | Drag sideways |
+
+Tilting needs a secure context (HTTPS or `localhost`); iPhone also asks for permission.
+Over plain `http://<computer-ip>:8000` use the sideways swipe.
+
+## Weightlifting
+
+- Clean and jerk, three attempts. The heaviest good lift wins.
+- Before each lift choose the weight in 5 kg steps. It cannot go down, and after a good lift it
+  must go up.
+- **Pull**: tap both sides to raise the bar. Each side rises with its own taps and sags on its
+  own, and one side gets weaker from time to time. A tilted bar is lost; a slow pull times out.
+- The clean and the jerk play on their own.
+- **Hold**: each side has a marker swinging over a bar. Stop each one inside the green zone with
+  a single tap, in any order. One miss drops the bar on that side.
+- Heavier bars need faster tapping and give a smaller, quicker target.
+
+| Action | Keyboard | Phone |
+|---|---|---|
+| Choose the weight | F / J or arrows | `-5` and `+5` buttons |
+| Start the lift | Enter or Space | `LIFT` button |
+| Left / right side | F / J | Tap that half of the screen |
+
+Android phones vibrate with the effort. iPhone Safari and computers do not vibrate.
+
+## Screens
+
+1. **Title**: single player or multiplayer (multiplayer is not available yet).
+2. **Events**: pick a discipline.
+3. **Runner setup**: country, name and level, next to an athlete performing the event.
+4. **Competition** and results.
+
+To add a discipline: write its rules (`<name>.js`, DOM-free) and its screen (`<name>-ui.js`),
+register the screen in `screens` (`game.js`), add both scripts to `index.html`, enable the event
+in `EVENTS` (`home.js`), draw its card in `art.js` and give it movements for the setup screen in
+`moves.js` (plus its height in `HEADROOM`, `menu.js`).
+
+An event screen returns `{ lock, start, update, draw, key, click }` and optionally
+`keyUp`, `down`, `move`, `up` (raw pointers), `flick` and `wheel` (two-finger movement).
+
+## Runner setup
 
 | Action | Mouse | Keyboard |
 |---|---|---|
@@ -21,6 +132,7 @@ no build step.
 | Name (up to 8 characters) | | Type, Backspace |
 | Level | Click a button | Tab |
 | Start | Start button | Enter |
+| Back to events | Back button | Esc |
 
 ## Phones
 
@@ -31,8 +143,8 @@ no build step.
 
 | Action | Touch |
 |---|---|
-| Charge speed | Swipe down anywhere; alternate fingers to charge faster |
-| Jump | Quick upward flick |
+| Charge speed (hurdles) | Swipe down anywhere; alternate fingers to charge faster |
+| Jump (hurdles) | Quick upward flick |
 | Name | Tap the name box to open the system keyboard |
 | Back to menu | `MENU` button |
 
@@ -52,13 +164,20 @@ Open `index.html` in a browser, or serve the folder:
 python3 -m http.server 8000   # then open http://localhost:8000
 ```
 
-## Controls
+## Pause
+
+On a computer, `Esc` pauses any competition and opens a menu with **Resume** (`Enter` or `Esc`)
+and **Menu** (`M`). Losing the captured pointer, for instance by switching windows, pauses too.
+Pausing lets go of held inputs, so a drawn bow relaxes without shooting. Browsers may need a
+second click to capture the pointer again right after `Esc`.
+
+## Hurdles controls
 
 | Action | Trackpad | Keyboard fallback |
 |---|---|---|
 | Charge speed | Swipe down repeatedly; alternate two fingers to charge faster | Alternate Left / Right |
 | Jump | Quick upward flick, one or two fingers | Space |
-| Start / retry | Buttons on screen (the pointer is captured during the race; Esc releases it) | Enter |
+| Start / retry | Buttons on screen (the pointer is captured during the race) | Enter |
 | Debug panel | | D |
 | Invert two-finger direction | | I |
 | Back to menu | Results screen button | M after a race, R during it |
@@ -92,20 +211,41 @@ An OS momentum tail never adds swipes. All thresholds live in `DEFAULTS` in `inp
 node --test
 ```
 
+## Online version
+
+AWS deployment (S3, CloudFront, EC2) is described in [infra/README.md](infra/README.md).
+Planned features are listed in [ROADMAP.md](ROADMAP.md).
+
 ## Files
 
 | File | Purpose |
 |---|---|
 | `index.html` | Page and canvas |
 | `input.js` | Gesture detector (DOM-free, testable) |
+| `home.js` | Title and event selection screens |
+| `art.js` | Pixel illustrations: podium and events |
 | `menu.js` | Runner selection screen |
 | `mobile.js` | Touch gestures, system keyboard and screen changes |
 | `layout.js` | Logical size and camera framing per device (testable) |
 | `countries.js` | Outfits and pixel flags |
-| `avatar.js` | Rotatable box model of the runner, with name on the shirt |
+| `avatar.js` | Rotatable model of the athlete (setup preview, shot put, boxing, weightlifting) and its equipment |
+| `moves.js` | Movements of the athlete on the setup screen (testable) |
 | `font.js` | Bitmap font and name sanitizing |
 | `track.js` | Oval geometry and coordinate conversions (testable) |
-| `race.js` | Simulation, rival AI and standings (testable) |
+| `race.js` | Hurdles simulation, rival AI and standings (testable) |
+| `longjump.js` | Long jump rules, rivals and standings (testable) |
+| `longjump-ui.js` | Long jump input, HUD, angle meter and results |
+| `contest.js` | Rivals, attempts and standings shared by the field events (testable) |
+| `spin.js` | Circle-and-throw gesture detector (testable) |
+| `shotput.js` / `shotput-ui.js` | Shot put rules (testable) and screen |
+| `archery.js` / `archery-ui.js` | Archery rules (testable) and screen |
+| `bow-art.js` | Archery sight art |
+| `blocks.js` | Boxing gloves drawn flat on the screen, for the ones close to the camera |
+| `boxing.js` / `boxing-ui.js` | Boxing rules and opponent (testable), screen and tilt input |
+| `weightlifting.js` / `weightlifting-ui.js` | Weightlifting rules (testable), screen and vibration |
+| `lift-art.js` | Weightlifting hall, platform and keycaps |
+| `scene3d.js` | Small 3D camera for the infield events |
+| `fieldui.js` | HUD and results shared by the events |
 | `render.js` | Chase camera, ground, stands, hurdles and sprites |
 | `game.js` | Input wiring, state machine, HUD and main loop |
 | `*.test.js` | Unit tests |

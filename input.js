@@ -132,7 +132,7 @@
       f.fired = true;
       if (t - this.lastJumpT < this.cfg.jumpCooldownMs) return;
       this.lastJumpT = t;
-      this.onJump('flick');
+      this.onJump('flick', source);
     }
   }
 

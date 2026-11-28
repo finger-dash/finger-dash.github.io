@@ -37,6 +37,7 @@
     };
     const C = {
       track: rgb('#cf5a3c'), trackAlt: rgb('#bd4d33'), line: rgb('#f3e9dc'), dark: rgb('#222222'),
+      sand: rgb('#e8cf8a'), sandLine: rgb('#b99a55'), foul: rgb('#d52b1e'), target: rgb('#f9d71c'),
       grass: rgb('#3f9e45'), grassAlt: rgb('#358a3c'), apron: rgb('#a9a9bd'), outer: rgb('#4b4b66'),
     };
 
@@ -142,8 +143,20 @@
       }
     }
 
+    // Long jump area painted over the player's lane: board, foul line and sand.
+    const PIT_HALF = 1.7, PIT_FROM = 1, PIT_TO = 11.5;
+    function pitColor(pit, rel, depthStep) {
+      if (rel > -0.4 && rel <= 0) return C.line;
+      if (rel > 0 && rel <= 0.2) return C.foul;
+      if (rel < PIT_FROM || rel > PIT_TO) return null;
+      // Lines stay at least one screen row thick, so they do not flicker far away.
+      const thick = Math.min(0.3, Math.max(0.07, depthStep));
+      if (pit.target && Math.abs(rel - pit.target) < thick) return C.target;
+      return rel % 1 < thick ? C.sandLine : C.sand;
+    }
+
     const at = { s: 0, n: 0 };
-    function drawGround() {
+    function drawGround(pit, centre) {
       const edge = Track.HALF_WIDTH, lane = Track.LANE_WIDTH;
       const rx = cam.fy, ry = -cam.fx;
       let i = 0;
@@ -154,6 +167,7 @@
         let wx = cam.x + cam.fx * depth + rx * (-W / 2 + 0.5) * mpp;
         let wy = cam.y + cam.fy * depth + ry * (-W / 2 + 0.5) * mpp;
         const far = depth > 90;
+        const depthStep = depth / (y - HORIZON + 0.5) / 2;
         for (let x = 0; x < W; x++, i++, wx += rx * mpp, wy += ry * mpp) {
           Track.locate(wx, wy, at);
           const n = at.n;
@@ -170,6 +184,7 @@
           } else {
             c = n < 6 ? (tick && n < 5.4 ? C.line : C.apron) : n < 16 ? C.outer : alt ? C.grass : C.grassAlt;
           }
+          if (pit && Math.abs(n - centre) < PIT_HALF) c = pitColor(pit, at.s - pit.board, depthStep) || c;
           pixels[i] = c;
         }
       }
@@ -284,6 +299,47 @@
       });
     }
 
+    // ---------- Long jump pit ----------
+
+    // Distance signs on both sides of the sand, and sand thrown up on landing.
+    function pitItems(items, world) {
+      const centre = Track.laneOffset(world.player.lane);
+      for (let m = 2; m <= 11; m++) {
+        for (const side of [-PIT_HALF - 0.3, PIT_HALF + 0.3]) {
+          const base = view(world.pit.board + m, centre + side, 0);
+          if (base.d < NEAR + 0.4 || base.d > 22) continue;
+          if (base.d > 9 && m % 3 !== 2) continue; // far signs would pile up
+          items.push({
+            d: base.d,
+            draw() {
+              const p = screen(view(world.pit.board + m, centre + side, 0.45));
+              const size = Math.max(1, Math.min(2, Math.floor(p.s / 18)));
+              const w = String(m).length * 4 * size + 1;
+              rect(p.x - w / 2, p.y - 1, w, 5 * size + 2, '#f4f4f4');
+              rect(p.x - 0.5, p.y + 5 * size, 1, screen(base).y - p.y - 5 * size, '#333');
+              text(m, p.x, p.y, '#14142a', size, 'center');
+            },
+          });
+        }
+      }
+      if (world.splash === null) return;
+      const spot = view(world.player.s, centre, 0);
+      items.push({
+        d: spot.d - 0.05,
+        draw() {
+          const t = world.splash;
+          for (let i = 0; i < 36; i++) {
+            const spread = (noise(i, 1) - 0.5) * 2.6 * (0.3 + t);
+            const lift = Math.sin(Math.PI * t) * (0.2 + noise(i, 2) * 0.9);
+            const v = view(world.player.s + (noise(i, 3) - 0.5) * t, centre + spread, lift);
+            if (v.d < NEAR) continue;
+            const p = screen(v), size = Math.max(1, 0.07 * p.s);
+            rect(p.x, p.y, size, size, i % 3 ? '#e8cf8a' : '#b99a55');
+          }
+        },
+      });
+    }
+
     // ---------- Speed cues ----------
 
     const POLE_GAP = 6;
@@ -337,7 +393,8 @@
           draw() {
             const p = screen(spot);
             const k = p.s / SPRITE_PPM;
-            const height = Race.jumpHeight(r);
+            // The long jumper carries its own height; racers derive it from the jump.
+            const height = r.height === undefined ? Race.jumpHeight(r) : r.height;
             const shadow = (22 - height * 7) * k;
             ctx.globalAlpha = 0.35;
             rect(p.x - shadow / 2, p.y - 2 * k, shadow, Math.max(1, 4 * k), '#000');
@@ -361,12 +418,15 @@
       ctx.save();
       ctx.translate(0, shake);
       drawSky();
-      drawGround();
+      drawGround(race.pit, Track.laneOffset(race.player.lane));
       const items = [];
       standItems(items, now, race.player.speed > 5);
       poleItems(items, race.player);
-      gantryItem(items);
-      hurdleItems(items, race);
+      if (race.pit) pitItems(items, race);
+      else {
+        gantryItem(items);
+        hurdleItems(items, race);
+      }
       runnerItems(items, race, now);
       items.sort((a, b) => b.d - a.d); // painter's algorithm: far to near
       for (const item of items) item.draw();

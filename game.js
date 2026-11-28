@@ -6,8 +6,11 @@
   const view = Renderer.createRenderer(canvas, Track, Race, Countries, Font, Avatar, Layout);
   const menu = Menu.createMenu(view, Avatar.createAvatar(Countries, Font, 4), Countries, Font);
   const { text, rect, ctx } = view;
+  const art = Art.createArt(view, Avatar.createAvatar(Countries, Font, 4), Countries);
+  const home = Home.createHome(view, art);
 
   let state, race, countdown, resultsAt, jumps, lastSource;
+  let eventId = 'hurdles400';
   let debug = false;
   let best = null;
   const profile = { name: '', country: 'ARG', difficulty: 'normal' };
@@ -20,15 +23,93 @@
   if (!Race.DIFFICULTY[profile.difficulty]) profile.difficulty = 'normal';
   const save = (key, value) => { try { localStorage.setItem(key, String(value)); } catch (_) {} };
 
-  const detector = new Gestures.GestureDetector((source) => {
-    lastSource = source;
-    jump();
+  const detector = new Gestures.GestureDetector((kind, source) => {
+    lastSource = kind;
+    if (state !== 'event') jump();
+    else if (active.flick) active.flick(source);
   });
   try {
     detector.naturalScroll = localStorage.getItem('hurdles.natural') !== '0';
   } catch (_) {}
 
   const mobile = Mobile.createMobile({ canvas, detector, Font, Layout });
+
+  // Every event but the hurdles lives in its own screen with a common interface:
+  // lock, start, update, draw, key, click and optionally keyUp, flick, down, move, up, wheel,
+  // pause (forget held inputs).
+  const shell = {
+    power: drawPower, panel, button: drawButton, resultsBoxes, quitBox, over,
+    save: (key, value) => save(key, value),
+    exit: openMenu,
+    restart: start,
+    relock: () => { if (!mobile.isTouch() && active && active.lock) lockPointer(); },
+    unlock: () => { if (document.pointerLockElement) document.exitPointerLock(); },
+    locked: () => locked(),
+    paused: () => paused,
+    arrowStroke,
+  };
+  const parts = { view, detector, mobile, shell };
+  const screens = {
+    longJump: LongJumpUi.create(parts),
+    shotPut: ShotPutUi.create(parts),
+    archery: ArcheryUi.create(parts),
+    boxing: BoxingUi.create(parts),
+    weightlifting: WeightliftingUi.create(parts),
+  };
+  let active = null; // screen of the event being played, null for the hurdles
+
+  // ---------- Pause (computers) ----------
+
+  const ESC_GUARD = 300; // ms; one Escape may arrive both as a key and as a lost pointer
+  let paused = false, pausedAt = 0;
+
+  // A competition is on and its results are not up yet.
+  const inPlay = () => state === 'countdown' || state === 'running' ||
+    (state === 'event' && !active.resultsShown());
+
+  function pause() {
+    if (paused || mobile.isTouch() || !inPlay()) return;
+    paused = true;
+    pausedAt = performance.now();
+    if (active && active.pause) active.pause();
+    if (document.pointerLockElement) document.exitPointerLock();
+  }
+
+  // Must run inside a click or key press so the pointer can be locked.
+  function resume() {
+    paused = false;
+    if (!active || active.lock) lockPointer();
+  }
+
+  // Browsers use Escape to free the pointer without telling the page about the key.
+  document.addEventListener('pointerlockchange', () => {
+    if (!document.pointerLockElement) pause();
+  });
+
+  function pauseBoxes() {
+    const { w, h } = view.layout;
+    const results = resultsBoxes();
+    const height = results.retry.h + 46;
+    const box = { x: results.panel.x, y: Math.round((h - height) / 2), w: results.panel.w, h: height };
+    const by = box.y + box.h - results.retry.h - 6;
+    return {
+      panel: box,
+      resume: { ...results.retry, y: by },
+      menu: { ...results.menu, y: by },
+    };
+  }
+
+  function drawPause() {
+    const { panel: box, resume: back, menu: toMenu } = pauseBoxes();
+    const { w: W, h: H } = view.layout;
+    ctx.globalAlpha = 0.45;
+    rect(0, 0, W, H, '#10101c');
+    ctx.globalAlpha = 1;
+    panel(box.x, box.y, box.w, box.h);
+    text('PAUSED', W / 2, box.y + 12, '#f9d56e', 3, 'center');
+    drawButton(back, 'RESUME - ENTER', '#5be37d');
+    drawButton(toMenu, 'MENU - M', '#9ab');
+  }
 
   function newRace() {
     detector.reset();
@@ -38,22 +119,49 @@
     countdown = 0; jumps = 0; lastSource = '-';
   }
 
-  function openMenu() {
-    newRace();
-    state = 'menu';
+  // Screens: title -> events -> menu (runner setup) -> countdown -> running -> finished.
+  const racing = () => state === 'countdown' || state === 'running' || state === 'finished';
+  const homeScreen = () => (state === 'title' ? home.title : state === 'events' ? home.events : null);
+
+  function show(screen) {
+    state = screen;
+    paused = false;
+    canvas.style.cursor = '';
     mobile.closeName();
     if (document.pointerLockElement) document.exitPointerLock();
   }
 
+  function openMenu() {
+    newRace();
+    show('menu');
+  }
+
+  function homeAction(action) {
+    if (!action) return;
+    if (action.type === 'mode') show('events');
+    else if (action.type === 'event') {
+      eventId = action.id;
+      openMenu();
+    }
+    else if (action.type === 'back') show('title');
+  }
+
   // Must run inside a click or key press so the pointer can be locked.
   function start() {
+    paused = false;
     newRace();
-    state = 'countdown';
-    countdown = 3;
+    active = screens[eventId] || null;
+    if (active) {
+      active.start(profile);
+      state = 'event';
+    } else {
+      state = 'countdown';
+      countdown = 3;
+    }
     canvas.style.cursor = '';
     mobile.closeName();
     if (mobile.isTouch()) mobile.enterFullscreen();
-    else lockPointer();
+    else if (!active || active.lock) lockPointer();
   }
 
   function saveProfile() {
@@ -65,6 +173,7 @@
   function menuAction(action) {
     if (action === 'changed') saveProfile();
     if (action === 'start') start();
+    if (action === 'back') show('events');
     if (action === 'name' && mobile.isTouch()) {
       mobile.editName(profile.name, (name) => {
         profile.name = name;
@@ -85,7 +194,13 @@
     if (typeof e.webkitDirectionInvertedFromDevice === 'boolean') {
       detector.naturalScroll = e.webkitDirectionInvertedFromDevice;
     }
+    if (paused) return;
     detector.wheel(e, performance.now());
+    if (state === 'event' && active.wheel) {
+      const sign = detector.naturalScroll ? -1 : 1; // finger direction
+      const unit = e.deltaMode === 1 ? 16 : 1;
+      active.wheel(e.deltaX * unit * sign, e.deltaY * unit * sign, performance.now());
+    }
   }, { passive: false });
 
   // One finger: pointer movement. Pointer Lock removes the screen edges.
@@ -97,7 +212,7 @@
     } catch (_) {}
   }
   window.addEventListener('mousemove', (e) => {
-    if (!mobile.fromTouch()) detector.move(e.movementY, performance.now());
+    if (!paused && !mobile.fromTouch()) detector.move(e.movementY, performance.now());
   });
 
   // Ignores accidental taps right after the results show up.
@@ -105,32 +220,81 @@
 
   // Keyboard fallback: alternate left/right to run, space to jump.
   let lastArrow = '';
+  function arrowStroke(code) {
+    if ((code !== 'ArrowLeft' && code !== 'ArrowRight') || code === lastArrow) return;
+    lastArrow = code;
+    detector.addStroke('key');
+  }
   window.addEventListener('keydown', (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return; // keep browser shortcuts
     if (mobile.isEditing()) return; // the text field handles its own keys
+    if (homeScreen()) {
+      const action = e.repeat ? null : homeScreen().key(e);
+      if (action) {
+        e.preventDefault();
+        homeAction(action);
+      }
+      return;
+    }
     if (state === 'menu') {
       const action = menu.key(profile, e);
       if (action) e.preventDefault();
       menuAction(action);
       return;
     }
+    if (paused) {
+      e.preventDefault();
+      if (e.repeat) return;
+      const again = e.code === 'Escape' && performance.now() - pausedAt > ESC_GUARD;
+      if (again || e.code === 'Enter') resume();
+      else if (e.code === 'KeyM') openMenu();
+      return;
+    }
     if (e.repeat) return;
+    if (e.code === 'Escape' && inPlay()) {
+      e.preventDefault();
+      pause();
+      return;
+    }
     if (state === 'finished') {
       if (e.code === 'Enter' && resultsReady()) start();
       else if (e.code === 'KeyM' || e.code === 'Escape') openMenu();
       return;
     }
     if (e.code === 'KeyR') openMenu();
-    else if (e.code === 'KeyD') debug = !debug;
     else if (e.code === 'KeyI') {
       detector.naturalScroll = !detector.naturalScroll;
       save('hurdles.natural', detector.naturalScroll ? '1' : '0');
-    } else if (e.code === 'Space') { e.preventDefault(); jump(); lastSource = 'key'; }
-    else if ((e.code === 'ArrowLeft' || e.code === 'ArrowRight') && e.code !== lastArrow) {
-      lastArrow = e.code;
-      detector.addStroke('key');
-    }
+    } else if (state === 'event') active.key(e);
+    else if (e.code === 'KeyD') debug = !debug;
+    else if (e.code === 'Space') { e.preventDefault(); jump(); lastSource = 'key'; }
+    else arrowStroke(e.code);
   });
+  window.addEventListener('keyup', (e) => {
+    if (!paused && state === 'event' && active.keyUp) active.keyUp(e);
+  });
+
+  // Raw pointer streams for the event screens: logical position, CSS position and
+  // movement since the previous sample (also valid while the pointer is locked).
+  const lastSeen = new Map();
+  for (const [type, handler] of [
+    ['pointerdown', 'down'], ['pointermove', 'move'], ['pointerup', 'up'], ['pointercancel', 'up'],
+  ]) {
+    window.addEventListener(type, (e) => {
+      const mouse = e.pointerType === 'mouse';
+      const previous = lastSeen.get(e.pointerId);
+      const dx = mouse ? e.movementX : previous ? e.clientX - previous[0] : 0;
+      const dy = mouse ? e.movementY : previous ? e.clientY - previous[1] : 0;
+      if (handler === 'up') lastSeen.delete(e.pointerId);
+      else lastSeen.set(e.pointerId, [e.clientX, e.clientY]);
+      if (paused || state !== 'event' || !active[handler] || mobile.needsRotation()) return;
+      const [x, y] = point(e);
+      active[handler]({
+        id: e.pointerId, mouse, x, y, cx: e.clientX, cy: e.clientY,
+        dx: handler === 'down' ? 0 : dx, dy: handler === 'down' ? 0 : dy, t: performance.now(),
+      });
+    });
+  }
 
   // Mouse position in logical canvas coordinates.
   function point(e) {
@@ -152,12 +316,20 @@
     };
   }
   // Touch only: button to leave the race.
-  const quitBox = () => ({ x: 5, y: 24 + view.layout.top, w: 30, h: 13 });
-  const over = (b, x, y) => x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h;
+  function quitBox() {
+    return { x: 5, y: 24 + view.layout.top, w: 30, h: 13 };
+  }
+  function over(b, x, y) {
+    return x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h;
+  }
 
   window.addEventListener('mousemove', (e) => {
-    if (state === 'menu') canvas.style.cursor = menu.hovering(...point(e)) ? 'pointer' : 'default';
-    else if (state === 'finished') canvas.style.cursor = 'default';
+    const screen = state === 'menu' ? menu : homeScreen();
+    if (paused) {
+      const boxes = pauseBoxes(), at = point(e);
+      canvas.style.cursor = over(boxes.resume, ...at) || over(boxes.menu, ...at) ? 'pointer' : 'default';
+    } else if (screen) canvas.style.cursor = screen.hovering(...point(e)) ? 'pointer' : 'default';
+    else if (state === 'finished' || state === 'event') canvas.style.cursor = 'default';
   });
 
   // Clicks and taps. Taps act on release, which lets phones open the keyboard.
@@ -173,7 +345,15 @@
     if (e.pointerType !== 'mouse' &&
         Math.hypot(e.clientX - from[0], e.clientY - from[1]) > TAP_SLOP) return;
     const [x, y] = point(e);
-    if (state === 'menu') menuAction(menu.click(profile, x, y));
+    if (paused) {
+      const boxes = pauseBoxes();
+      if (over(boxes.resume, x, y)) resume();
+      else if (over(boxes.menu, x, y)) openMenu();
+      return;
+    }
+    if (homeScreen()) homeAction(homeScreen().click(x, y));
+    else if (state === 'menu') menuAction(menu.click(profile, x, y));
+    else if (state === 'event') active.click(x, y, e.pointerType);
     else if (state === 'finished') {
       if (!resultsReady()) return;
       const boxes = resultsBoxes();
@@ -187,8 +367,12 @@
   // ---------- Simulation ----------
 
   function update(dt, now) {
-    if (mobile.needsRotation()) {
+    if (paused || mobile.needsRotation()) {
       detector.update(now, true);
+      return;
+    }
+    if (state === 'event') {
+      active.update(dt, now);
       return;
     }
     detector.update(now, state === 'running' && race.player.jumpT >= 0);
@@ -201,7 +385,7 @@
       }
       return;
     }
-    if (state === 'menu') return;
+    if (!racing()) return;
 
     // The simulation keeps going behind the results so late rivals can finish.
     Race.step(race, dt, detector.charge * Race.MAX_SPEED);
@@ -222,26 +406,30 @@
 
   const ordinal = (n) => n + (['ST', 'ND', 'RD'][n - 1] || 'TH');
 
-  function drawHud() {
-    const p = race.player;
-    const order = Race.standings(race);
-    const clock = p.finishTime !== null ? p.finishTime : race.time;
-    const { w: W, h: H, horizon, portrait, top, bottom } = view.layout;
-    text(`TIME ${clock.toFixed(2)}`, 5, 5 + top, '#fff');
-    text(`BEST ${best ? best.toFixed(2) : '--'}`, 5, 13 + top, '#f9d56e');
-    text(`${Math.min(Race.DISTANCE, p.s).toFixed(0)}/${Race.DISTANCE}M`, W - 5, 5 + top, '#fff', 1, 'right');
-    text(`${(p.speed * 3.6).toFixed(0)} KM/H`, W - 5, 13 + top, '#fff', 1, 'right');
-    text(`${ordinal(order.indexOf(p) + 1)}/${order.length}`, W / 2, 4 + top, '#f9d56e', 2, 'center');
-
-    // Power meter, arcade style. Wide and centred on upright phones.
+  // Power meter, arcade style. Wide and centred on upright phones.
+  function drawPower(power = detector.charge) {
+    const { h: H, w: W, portrait, bottom } = view.layout;
     const step = portrait ? 11 : 5, tall = portrait ? 10 : 7;
     const left = portrait ? (W - 16 * step + 1) / 2 : 5;
     const meterY = H - bottom - tall - 4;
     text('POWER', left, meterY - 8, '#fff');
     for (let i = 0; i < 16; i++) {
-      const on = i < Math.round(detector.charge * 16);
+      const on = i < Math.round(power * 16);
       rect(left + i * step, meterY, step - 1, tall, on ? (i < 8 ? '#5be37d' : i < 12 ? '#f9d56e' : '#e8505b') : '#222');
     }
+  }
+
+  function drawHud() {
+    const p = race.player;
+    const order = Race.standings(race);
+    const clock = p.finishTime !== null ? p.finishTime : race.time;
+    const { w: W, horizon, portrait, top } = view.layout;
+    text(`TIME ${clock.toFixed(2)}`, 5, 5 + top, '#fff');
+    text(`BEST ${best ? best.toFixed(2) : '--'}`, 5, 13 + top, '#f9d56e');
+    text(`${Math.min(Race.DISTANCE, p.s).toFixed(0)}/${Race.DISTANCE}M`, W - 5, 5 + top, '#fff', 1, 'right');
+    text(`${(p.speed * 3.6).toFixed(0)} KM/H`, W - 5, 13 + top, '#fff', 1, 'right');
+    text(`${ordinal(order.indexOf(p) + 1)}/${order.length}`, W / 2, 4 + top, '#f9d56e', 2, 'center');
+    drawPower();
     view.minimap(race);
 
     if (state === 'running') {
@@ -303,15 +491,19 @@
       [retry, mobile.isTouch() ? 'RETRY' : 'RETRY - ENTER', '#5be37d'],
       [toMenu, mobile.isTouch() ? 'MENU' : 'MENU - M', '#9ab'],
     ]) {
-      rect(button.x, button.y, button.w, button.h, color);
-      text(label, button.x + button.w / 2, button.y + Math.floor((button.h - 5) / 2), '#10101c', 1, 'center');
+      drawButton(button, label, color);
     }
+  }
+
+  function drawButton(b, label, color) {
+    rect(b.x, b.y, b.w, b.h, color);
+    text(label, b.x + b.w / 2, b.y + Math.floor((b.h - 5) / 2), '#10101c', 1, 'center');
   }
 
   function drawOverlay() {
     const { w: W, h: H, horizon } = view.layout;
-    const racing = state === 'running' || state === 'countdown';
-    if (racing && mobile.isTouch()) {
+    const live = state === 'running' || state === 'countdown';
+    if (live && mobile.isTouch()) {
       const quit = quitBox();
       rect(quit.x, quit.y, quit.w, quit.h, '#10101c');
       text('MENU', quit.x + quit.w / 2, quit.y + 4, '#fff', 1, 'center');
@@ -319,7 +511,7 @@
         rect(W / 2 - 78, horizon - 3, 156, 11, '#10101c');
         text('SWIPE DOWN TO RUN - FLICK UP TO JUMP', W / 2, horizon, '#fff', 1, 'center');
       }
-    } else if (racing && !locked()) {
+    } else if (live && !locked() && !paused) {
       text('CLICK TO CAPTURE THE POINTER', W / 2, H - 30, '#fff', 1, 'center');
     }
     if (state === 'countdown') text(Math.ceil(countdown), W / 2, horizon - 32, '#fff', 5, 'center');
@@ -334,17 +526,25 @@
     last = now;
     mobile.syncLayout(view.resize);
     update(dt, now);
-    if (state === 'menu') {
-      menu.draw(profile, now, mobile.isTouch());
+    const shown = paused ? pausedAt : now; // animations stop too
+    if (state === 'title') {
+      home.title.draw(profile.country, now, mobile.isTouch());
+    } else if (state === 'events') {
+      home.events.draw(mobile.isTouch());
+    } else if (state === 'menu') {
+      menu.draw(profile, now, mobile.isTouch(), Home.EVENTS.find((ev) => ev.id === eventId));
+    } else if (state === 'event') {
+      active.draw(shown);
     } else {
-      view.scene(race, now);
+      view.scene(race, shown);
       if (state !== 'finished') drawHud();
       drawOverlay();
     }
+    if (paused) drawPause();
     document.body.classList.toggle('rotate', mobile.needsRotation());
     requestAnimationFrame(frame);
   }
 
-  openMenu();
+  show('title');
   requestAnimationFrame(frame);
 })();
